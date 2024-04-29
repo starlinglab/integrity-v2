@@ -6,4 +6,5 @@ standalone:
     @go build -o build/integrity-v2
 
 build tool:
+    @rm build/$1
     @go build -o build/$1 ./$1/cmd
