@@ -11,6 +11,11 @@ import (
 // Main file for all-in-one build
 
 func main() {
+	if len(os.Args) == 1 {
+		fmt.Println("TODO help text")
+		return
+	}
+
 	// Try to run command based on binary name
 	// Might have been symlinked with different names
 	ok := run(filepath.Base(os.Args[0]), os.Args[1:])
@@ -31,8 +36,6 @@ func main() {
 
 func run(cmd string, args []string) bool {
 	switch cmd {
-	case "integrity-v2":
-		fmt.Println("TODO help text here")
 	case "dummy":
 		dummy.Run(args)
 	default:
