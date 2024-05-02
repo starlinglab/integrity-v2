@@ -1,0 +1,20 @@
+[aa]
+# Actual config for AA service is provded in .env file
+# Any settings in this section are just for AA users
+host = "localhost:1234"
+
+[webhook]
+host = "localhost:4321"
+# JWT secret is passed in through env var/file for security
+
+[dirs]
+files = "/path/to/file/storage/"
+c2pa = "/path/to/c2pa-file/storage/"
+c2pa_manifests = "/path/to/c2pa-manifests/storage/"
+metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
+file_enc_keys = "/path/to/file-encryption-key/storage/"
+
+
+[bins]
+ipfs = "/usr/local/bin/ipfs"
+rclone = "/usr/bin/rclone"
