@@ -1,7 +1,8 @@
 [aa]
-# Actual config for AA service is provded in .env file
+# Actual config for AA service is provided in .env file
 # Any settings in this section are just for AA users
-host = "localhost:1234"
+url = "http://localhost:3001"
+jwt = "foo.bar.baz"           # Put shared JWT for AA here
 
 [webhook]
 host = "localhost:4321"
