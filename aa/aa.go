@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	urlpkg "net/url"
-	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/config"
 )
@@ -64,33 +63,4 @@ func GetAttributeRaw(cid, attr string, opts AttributeOptions) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
-}
-
-// GetCIDFromPath returns the CID for the given relative file path.
-// ErrNotFound is returned if no CID is known for that file path.
-func GetCIDFromPath(path string) (string, error) {
-	resp, err := client.Get(
-		fmt.Sprintf(
-			"%s/path?p=%s",
-			config.GetConfig().AA.Url,
-			urlpkg.QueryEscape(filepath.Join(config.GetConfig().Dirs.Files, path)),
-		),
-	)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 404 {
-		return "", ErrNotFound
-	}
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("bad status code in response: %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
 }

@@ -17,7 +17,6 @@ func Run(args []string) {
 		format  string
 		output  string
 		keyName string
-		file    string
 	)
 
 	fs := flag.NewFlagSet("export-proof", flag.ContinueOnError)
@@ -26,7 +25,6 @@ func Run(args []string) {
 	fs.StringVar(&format, "format", "cbor", "proof format (cbor,vc)")
 	fs.StringVar(&output, "o", "", "output path")
 	fs.StringVar(&keyName, "key", "", "name of metadata encryption key (only needed for encrypted attributes)")
-	fs.StringVar(&file, "file", "", "relative file path of asset within files dir")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -36,8 +34,8 @@ func Run(args []string) {
 
 	// Validate input
 
-	if (cid == "" && file == "") || (cid != "" && file != "") {
-		util.Die("provide CID with --cid or file path with --file")
+	if cid == "" {
+		util.Die("provide CID with --cid")
 	}
 	if attr == "" {
 		util.Die("provide attribute name with --attr")
@@ -58,14 +56,6 @@ func Run(args []string) {
 		key, err = os.ReadFile(filepath.Join(conf.Dirs.MetadataEncKeys, keyName))
 		if err != nil {
 			util.Die("error reading key: %v", err)
-		}
-	}
-
-	// Get CID if needed
-	if file != "" {
-		cid, err = aa.GetCIDFromPath(file)
-		if err != nil {
-			util.Die("error getting CID: %v", err)
 		}
 	}
 
