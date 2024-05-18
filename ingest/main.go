@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"ingest-v2/utils"
+	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,30 +25,36 @@ func main() {
 		// Multipart form
 		form, _ := c.MultipartForm()
 		files := form.File["file"]
+		file, err := files[0].Open()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		cid := utils.Cid(file)
 
-		var results [][]string
-		for _, file := range files {
-			log.Println(file.Filename)
-
-			openFile, err := file.Open()
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			cid := utils.Cid(openFile)
-			results = append(results, []string{file.Filename, cid})
+		metadatas := form.File["metadata"]
+		metadataFile, err := metadatas[0].Open()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		metadataString, err := io.ReadAll(metadataFile)
+		if err != nil {
+			log.Println(err)
+			return
 		}
 
-		var cidPairs []string
-		for _, pair := range results {
-			joinedPair := strings.Join(pair, ":")
-			cidPairs = append(cidPairs, joinedPair)
+		var jsonMap interface{}
+		err = json.Unmarshal(metadataString, &jsonMap)
+		if err != nil {
+			log.Printf("ERROR: fail to unmarshal json, %s", err.Error())
 		}
+		attributes := utils.ParseJsonToAttributes(jsonMap)
+		utils.PostNewAttribute(cid, attributes)
 
-		cidOutputString := strings.Join(cidPairs, "\n")
-		c.String(http.StatusOK,
-			fmt.Sprintf("%d files uploaded!\n%s", len(files), cidOutputString),
-		)
+		c.JSON(http.StatusOK, gin.H{
+			"cid": cid,
+		})
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
