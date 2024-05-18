@@ -13,6 +13,9 @@ func CopyOutputToFilePath(src io.Reader, originalFileName string, cid string) er
 	if outputDirectory == "" {
 		outputDirectory = "./output"
 	}
+	if _, err := os.Stat(outputDirectory); os.IsNotExist(err) {
+		os.Mkdir(outputDirectory, 0755)
+	}
 	ext := filepath.Ext(originalFileName)
 	path := filepath.Join(outputDirectory, cid)
 	if ext != "" {
