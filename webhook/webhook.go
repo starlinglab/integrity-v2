@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/starlinglab/integrity-v2/aa"
+	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
-
-var port = os.Getenv("PORT")
 
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	jsonData, err := json.Marshal(data)
@@ -125,8 +123,9 @@ func Run(args []string) {
 	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
 	r.Post("/upload", handleUpload)
 
-	if port == "" {
-		port = "8080"
+	host := config.GetConfig().Webhook.Host
+	if host == "" {
+		host = ":8080"
 	}
-	http.ListenAndServe(":"+port, r)
+	http.ListenAndServe(host, r)
 }
