@@ -1,14 +1,15 @@
-package main
+package webhook
 
 import (
 	"bytes"
 	"encoding/json"
-	"ingest-v2/utils"
 	"io"
 	"net/http"
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/starlinglab/integrity-v2/aa"
+	"github.com/starlinglab/integrity-v2/util"
 )
 
 var port = os.Getenv("PORT")
@@ -30,23 +31,23 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
-	v, err := utils.GetAllAttributes(cid)
+	v, err := aa.GetAllAttributes(cid)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJsonResponse(w, http.StatusOK, utils.CastMapForJSON(v))
+	writeJsonResponse(w, http.StatusOK, CastMapForJSON(v))
 }
 
 func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
 	attr := chi.URLParam(r, "attr")
-	v, err := utils.GetAttribute(cid, attr)
+	v, err := aa.GetAttribute(cid, attr)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJsonResponse(w, http.StatusOK, utils.CastMapForJSON(v))
+	writeJsonResponse(w, http.StatusOK, CastMapForJSON(v))
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -73,12 +74,12 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	var buf bytes.Buffer
 	teeFile := io.TeeReader(file, &buf)
-	cid := utils.Cid(teeFile)
+	cid := util.CalculateFileCid(teeFile)
 	if cid == "" {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Failed to generate CID for the file."})
 		return
 	}
-	err = utils.CopyOutputToFile(&buf, originalFileName, cid)
+	err = CopyOutputToFilePath(&buf, originalFileName, cid)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -107,8 +108,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	attributes := utils.ParseJsonToAttributes(jsonMap)
-	err = utils.PostNewAttribute(cid, attributes)
+	attributes := ParseJsonToAttributes(jsonMap)
+	err = aa.PostNewAttribute(cid, attributes)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
@@ -117,7 +118,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, map[string]string{"cid": cid})
 }
 
-func main() {
+func Run(args []string) {
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
 	r.Get("/c/{cid}", handleGetCid)

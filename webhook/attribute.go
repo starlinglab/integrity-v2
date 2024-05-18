@@ -1,9 +1,8 @@
-package utils
+package webhook
 
-type KeyValuePair struct {
-	key   string
-	value interface{}
-}
+import (
+	"github.com/starlinglab/integrity-v2/aa"
+)
 
 func CastMapForJSON(originalMap map[interface{}]interface{}) map[string]interface{} {
 	newMap := make(map[string]interface{})
@@ -29,9 +28,9 @@ func CastMapForJSON(originalMap map[interface{}]interface{}) map[string]interfac
 	return newMap
 }
 
-func ParseJsonToAttributes(jsonMap interface{}) []KeyValuePair {
+func ParseJsonToAttributes(jsonMap interface{}) []aa.AttributeKeyValuePair {
 
-	var attributes []KeyValuePair
+	var attributes []aa.AttributeKeyValuePair
 
 	parsedMap, ok := jsonMap.(map[string]interface{})
 	if !ok {
@@ -50,7 +49,7 @@ func ParseJsonToAttributes(jsonMap interface{}) []KeyValuePair {
 
 	for k, v := range contentMetadataMap {
 		if k != "private" {
-			attributes = append(attributes, KeyValuePair{key: k, value: v})
+			attributes = append(attributes, aa.AttributeKeyValuePair{Key: k, Value: v})
 		}
 	}
 

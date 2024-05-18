@@ -1,4 +1,4 @@
-package utils
+package util
 
 import (
 	"io"
@@ -16,7 +16,7 @@ import (
 	multicodec "github.com/multiformats/go-multicodec"
 )
 
-func Cid(fileReader io.Reader) string {
+func CalculateFileCid(fileReader io.Reader) string {
 	ds := dsync.MutexWrap(datastore.NewNullDatastore())
 	bs := blockstore.NewBlockstore(ds)
 	bs = blockstore.NewIdStore(bs)
