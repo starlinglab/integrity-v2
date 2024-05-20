@@ -24,6 +24,10 @@ type Config struct {
 		MetadataEncKeys   string `toml:"metadata_enc_keys"`
 		FileEncKeys       string `toml:"file_enc_keys"`
 	} `toml:"dirs"`
+	FolderPreprocessor struct {
+		SyncFolderRoot string   `toml:"sync_folder_root"`
+		FileExtensions []string `toml:"file_extensions"`
+	} `toml:"folder_preprocessor"`
 	Bins struct {
 		Ipfs     string `toml:"ipfs"`
 		Rclone   string `toml:"rclone"`
