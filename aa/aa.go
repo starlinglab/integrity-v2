@@ -23,7 +23,7 @@ var (
 
 type AttributeKeyValuePair struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 type AttributeOptions struct {
@@ -72,12 +72,12 @@ func GetAttributeRaw(cid, attr string, opts AttributeOptions) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func GetAttribute(cid, attr string) (map[interface{}](interface{}), error) {
+func GetAttribute(cid, attr string) (map[any](any), error) {
 	bytes, err := GetAttributeRaw(cid, attr, AttributeOptions{})
 	if err != nil {
 		return nil, err
 	}
-	v := make(map[interface{}](interface{}))
+	v := make(map[any](any))
 	err = cbor.Unmarshal(bytes, &v)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func GetAttribute(cid, attr string) (map[interface{}](interface{}), error) {
 	return v, nil
 }
 
-func GetAllAttributes(cid string) (map[interface{}](interface{}), error) {
+func GetAllAttributes(cid string) (map[any](any), error) {
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, cid))
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func GetAllAttributes(cid string) (map[interface{}](interface{}), error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var value map[interface{}](interface{})
+	var value map[any](any)
 	err = cbor.Unmarshal(bytes, &value)
 	if err != nil {
 		return nil, err
@@ -113,9 +113,9 @@ func PostNewAttribute(cid string, attributes []AttributeKeyValuePair) error {
 		return err
 	}
 
-	var encodedPayload []map[string]interface{}
+	var encodedPayload []map[string]any
 	for _, a := range attributes {
-		encodedPayload = append(encodedPayload, map[string]interface{}{"key": a.Key, "value": a.Value})
+		encodedPayload = append(encodedPayload, map[string]any{"key": a.Key, "value": a.Value})
 	}
 	b, err := cbor.Marshal(encodedPayload)
 	if err != nil {

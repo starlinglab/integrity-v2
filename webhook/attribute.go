@@ -4,22 +4,22 @@ import (
 	"github.com/starlinglab/integrity-v2/aa"
 )
 
-func CastMapForJSON(originalMap map[interface{}]interface{}) map[string]interface{} {
-	newMap := make(map[string]interface{})
+func CastMapForJSON(originalMap map[any]any) map[string]any {
+	newMap := make(map[string]any)
 	// handle value is array
 	for key, value := range originalMap {
-		if nestedArray, ok := value.([]interface{}); ok {
+		if nestedArray, ok := value.([]any); ok {
 			stringKey := key.(string)
-			newMap[stringKey] = []interface{}{}
+			newMap[stringKey] = []any{}
 			for _, v := range nestedArray {
-				if nestedMap, ok := v.(map[interface{}]interface{}); ok {
-					newMap[stringKey] = append(newMap[stringKey].([]interface{}), CastMapForJSON(nestedMap))
+				if nestedMap, ok := v.(map[any]any); ok {
+					newMap[stringKey] = append(newMap[stringKey].([]any), CastMapForJSON(nestedMap))
 				} else {
-					newMap[stringKey] = append(newMap[stringKey].([]interface{}), v)
+					newMap[stringKey] = append(newMap[stringKey].([]any), v)
 				}
 			}
 			// handle value is map
-		} else if nestedMap, ok := value.(map[interface{}]interface{}); ok {
+		} else if nestedMap, ok := value.(map[any]any); ok {
 			newMap[key.(string)] = CastMapForJSON(nestedMap)
 		} else {
 			newMap[key.(string)] = value
@@ -28,11 +28,11 @@ func CastMapForJSON(originalMap map[interface{}]interface{}) map[string]interfac
 	return newMap
 }
 
-func ParseJsonToAttributes(jsonMap interface{}) []aa.AttributeKeyValuePair {
+func ParseJsonToAttributes(jsonMap any) []aa.AttributeKeyValuePair {
 
 	var attributes []aa.AttributeKeyValuePair
 
-	parsedMap, ok := jsonMap.(map[string]interface{})
+	parsedMap, ok := jsonMap.(map[string]any)
 	if !ok {
 		return attributes
 	}
@@ -42,7 +42,7 @@ func ParseJsonToAttributes(jsonMap interface{}) []aa.AttributeKeyValuePair {
 		return attributes
 	}
 
-	contentMetadataMap, ok := contentMetadata.(map[string]interface{})
+	contentMetadataMap, ok := contentMetadata.(map[string]any)
 	if !ok {
 		return attributes
 	}
