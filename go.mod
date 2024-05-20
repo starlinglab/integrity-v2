@@ -190,6 +190,13 @@ require (
 )
 
 require (
+	github.com/fsnotify/fsnotify v1.7.0
+	github.com/go-chi/jwtauth/v5 v5.3.1
+	github.com/ipfs/boxo v0.19.0
+	github.com/ipfs/go-cid v0.4.1
+	github.com/ipfs/go-datastore v0.6.0
+	github.com/mitchellh/mapstructure v1.5.0
+	github.com/multiformats/go-multicodec v0.9.0
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
@@ -52,31 +53,39 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 	}, nil
 }
 
+func checkShouldIncludeFile(info fs.FileInfo) bool {
+	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
+	var ignoreFileNamePrefix byte = '.'
+	ignoreFileSuffix := ".partial"
+	fileName := info.Name()
+	if fileName[0] == ignoreFileNamePrefix {
+		return false
+	}
+	fileExt := filepath.Ext(fileName)
+	if fileExt == ignoreFileSuffix {
+		return false
+	}
+	if slices.Contains(whiteListExtension, fileExt) {
+		return true
+	}
+	return false
+}
+
 func scanDirectory(subPath string) ([]string, error) {
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	if scanRoot == "" {
 		scanRoot = "."
 	}
 	scanPath := filepath.Join(scanRoot, subPath)
-	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
-	var ignoreFileNamePrefix byte = '.'
-	ignoreFileSuffix := ".partial"
 	fileList := []string{}
 	err := filepath.Walk(scanPath, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		fileName := info.Name()
-		if fileName[0] == ignoreFileNamePrefix {
-			return nil
-		}
-		fileExt := filepath.Ext(fileName)
-		if fileExt == ignoreFileSuffix {
-			return nil
-		}
-		if slices.Contains(whiteListExtension, fileExt) {
+		if checkShouldIncludeFile(info) {
 			fileList = append(fileList, path)
 			fmt.Println("Found: " + path)
+			return nil
 		}
 		return nil
 	})
@@ -95,4 +104,56 @@ func Run(args []string) {
 		}
 		fmt.Println(metadata)
 	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		util.Die("error creating file watcher: %v", err)
+	}
+	defer watcher.Close()
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
+					file, err := os.Open(event.Name)
+					if err != nil {
+						// File may be moved away for fsnotify.Rename
+						continue
+					}
+					defer file.Close()
+					fileInfo, err := file.Stat()
+					if err != nil {
+						fmt.Println("error getting file info:", err)
+						continue
+					}
+					if checkShouldIncludeFile(fileInfo) {
+						metadata, err := getFileMetadata(event.Name)
+						if err != nil {
+							fmt.Println("error getting metadata for file:", err)
+							continue
+						}
+						fmt.Println(metadata)
+					}
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				fmt.Println("error:", err)
+			}
+		}
+	}()
+
+	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+	err = watcher.Add(scanRoot)
+	if err != nil {
+		util.Die("error adding watch for directory: %v", err)
+	}
+
+	// Block main goroutine forever.
+	<-make(chan struct{})
 }
