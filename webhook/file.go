@@ -25,6 +25,7 @@ func CopyOutputToFilePath(src io.Reader, originalFileName string, cid string) er
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 	_, err = io.Copy(fd, src)
 	return err
 }
