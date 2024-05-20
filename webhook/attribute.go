@@ -28,26 +28,12 @@ func CastMapForJSON(originalMap map[any]any) map[string]any {
 	return newMap
 }
 
-func ParseJsonToAttributes(jsonMap any) []aa.AttributeKeyValuePair {
+func ParseJsonToAttributes(jsonMap map[string]any) []aa.AttributeKeyValuePair {
 
 	var attributes []aa.AttributeKeyValuePair
 
-	parsedMap, ok := jsonMap.(map[string]any)
-	if !ok {
-		return attributes
-	}
-
-	contentMetadata, ok := parsedMap["contentMetadata"]
-	if !ok {
-		return attributes
-	}
-
-	contentMetadataMap, ok := contentMetadata.(map[string]any)
-	if !ok {
-		return attributes
-	}
-
-	for k, v := range contentMetadataMap {
+	for k, v := range jsonMap {
+		// TODO: add whitelist/blacklist for attributes in config
 		if k != "private" {
 			attributes = append(attributes, aa.AttributeKeyValuePair{Key: k, Value: v})
 		}

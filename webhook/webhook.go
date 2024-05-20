@@ -100,7 +100,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var jsonMap any
+	var jsonMap map[string]any
 	err = json.Unmarshal(metadataString, &jsonMap)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
