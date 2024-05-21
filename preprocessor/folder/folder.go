@@ -1,77 +1,17 @@
 package preprocessor_folder
 
 import (
-	"crypto/md5"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
-	"lukechampine.com/blake3"
 )
 
-func getFileMetadata(filePath string) (map[string]any, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	sha := sha256.New()
-	md := md5.New()
-	blake := blake3.New(32, nil)
-
-	tee := io.TeeReader(file, sha)
-	tee = io.TeeReader(tee, md)
-	tee = io.TeeReader(tee, blake)
-
-	mtype, err := mimetype.DetectReader(tee)
-	if err != nil {
-		return nil, err
-	}
-
-	return map[string]any{
-		"sha256":           hex.EncodeToString(sha.Sum(nil)),
-		"md5":              hex.EncodeToString(md.Sum(nil)),
-		"blake3":           hex.EncodeToString(blake.Sum(nil)),
-		"mimetype":         mtype.String(),
-		"fileSize":         fileInfo.Size(),
-		"fileName":         fileInfo.Name(),
-		"fileLastModified": fileInfo.ModTime(),
-	}, nil
-}
-
-func checkShouldIncludeFile(info fs.FileInfo) bool {
-	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
-	var ignoreFileNamePrefix byte = '.'
-	ignoreFileSuffix := ".partial"
-	fileName := info.Name()
-	if fileName[0] == ignoreFileNamePrefix {
-		return false
-	}
-	fileExt := filepath.Ext(fileName)
-	if fileExt == ignoreFileSuffix {
-		return false
-	}
-	if slices.Contains(whiteListExtension, fileExt) {
-		return true
-	}
-	return false
-}
-
-func scanDirectory(subPath string) ([]string, error) {
+func scanSyncDirectory(subPath string) ([]string, error) {
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	if scanRoot == "" {
 		scanRoot = "."
@@ -93,18 +33,21 @@ func scanDirectory(subPath string) ([]string, error) {
 }
 
 func Run(args []string) {
-	fileList, err := scanDirectory("")
+	// Scan whole sync directory
+	fileList, err := scanSyncDirectory("")
 	if err != nil {
 		util.Die("error scanning directory: %v", err)
 	}
 	for _, filePath := range fileList {
-		metadata, err := getFileMetadata(filePath)
+		cid, err := handleNewFile(filePath)
 		if err != nil {
-			fmt.Printf("error getting metadata for file %s: %v", filePath, err)
+			fmt.Println(err)
+		} else {
+			fmt.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
 		}
-		fmt.Println(metadata)
 	}
 
+	// Init directory watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		util.Die("error creating file watcher: %v", err)
@@ -119,7 +62,8 @@ func Run(args []string) {
 					return
 				}
 				if event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
-					file, err := os.Open(event.Name)
+					filePath := event.Name
+					file, err := os.Open(filePath)
 					if err != nil {
 						// File may be moved away for fsnotify.Rename
 						continue
@@ -131,12 +75,12 @@ func Run(args []string) {
 						continue
 					}
 					if checkShouldIncludeFile(fileInfo) {
-						metadata, err := getFileMetadata(event.Name)
+						cid, err := handleNewFile(filePath)
 						if err != nil {
-							fmt.Println("error getting metadata for file:", err)
-							continue
+							fmt.Println(err)
+						} else {
+							fmt.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
 						}
-						fmt.Println(metadata)
 					}
 				}
 			case err, ok := <-watcher.Errors:
