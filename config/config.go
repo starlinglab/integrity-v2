@@ -41,6 +41,13 @@ type Config struct {
 		Token              string `toml:"token"`
 		NftContractAddress string `toml:"nft_contract_address"`
 	} `toml:"numbers"`
+	Database struct {
+		Host     string `toml:"host"`
+		Port     string `toml:"port"`
+		User     string `toml:"user"`
+		Password string `toml:"password"`
+		Database string `toml:"database"`
+	} `toml:"database"`
 }
 
 var conf *Config
