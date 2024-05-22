@@ -41,13 +41,13 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"sha256":           hex.EncodeToString(sha.Sum(nil)),
-		"md5":              hex.EncodeToString(md.Sum(nil)),
-		"blake3":           hex.EncodeToString(blake.Sum(nil)),
-		"mimetype":         mtype.String(),
-		"fileSize":         fileInfo.Size(),
-		"fileName":         fileInfo.Name(),
-		"fileLastModified": fileInfo.ModTime(),
+		"sha256":        hex.EncodeToString(sha.Sum(nil)),
+		"md5":           hex.EncodeToString(md.Sum(nil)),
+		"blake3":        hex.EncodeToString(blake.Sum(nil)),
+		"media_type":    mtype.String(),
+		"file_size":     fileInfo.Size(),
+		"file_name":     fileInfo.Name(),
+		"last_modified": fileInfo.ModTime(),
 	}, nil
 }
 
