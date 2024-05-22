@@ -1,7 +1,10 @@
 NOTES.md
-integrity-v2
+/integrity-v2
 build/*
 !build/.gitkeep
+*.toml
+!example_config.toml
+sandbox
 
 # Created by https://www.toptal.com/developers/gitignore/api/go,linux,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,linux,visualstudiocode

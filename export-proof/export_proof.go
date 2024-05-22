@@ -10,15 +10,15 @@ import (
 	"github.com/starlinglab/integrity-v2/util"
 )
 
-func Run(args []string) {
-	var (
-		cid     string
-		attr    string
-		format  string
-		output  string
-		keyName string
-	)
+var (
+	cid     string
+	attr    string
+	format  string
+	output  string
+	keyName string
+)
 
+func Run(args []string) {
 	fs := flag.NewFlagSet("export-proof", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "attribute")
@@ -33,7 +33,6 @@ func Run(args []string) {
 	}
 
 	// Validate input
-
 	if cid == "" {
 		util.Die("provide CID with --cid")
 	}
@@ -60,9 +59,9 @@ func Run(args []string) {
 	}
 
 	// Get attribute
-	data, err := aa.GetAttributeRaw(
+	data, err := aa.GetAttestationRaw(
 		cid, attr,
-		aa.AttributeOptions{
+		aa.GetAttOpts{
 			EncKey:         key,
 			LeaveEncrypted: true,
 			Format:         format,

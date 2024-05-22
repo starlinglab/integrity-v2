@@ -9,13 +9,18 @@ host = "localhost:4321"
 # JWT secret is passed in through env var/file for security
 
 [dirs]
+# All paths should be absolute
 files = "/path/to/file/storage/"
 c2pa = "/path/to/c2pa-file/storage/"
-c2pa_manifests = "/path/to/c2pa-manifests/storage/"
+c2pa_manifest_templates = "/path/to/c2pa-manifest-templates/storage/"
 metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
 file_enc_keys = "/path/to/file-encryption-key/storage/"
-
 
 [bins]
 ipfs = "/usr/local/bin/ipfs"
 rclone = "/usr/bin/rclone"
+c2patool = "/usr/local/bin/c2patool"
+
+[c2pa]
+private_key = "/path/to/c2pa/private.key"
+sign_cert = "/path/to/c2pa/cert.pem"

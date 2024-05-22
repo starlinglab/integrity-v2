@@ -8,3 +8,6 @@ standalone:
 build tool:
     @rm -f build/$1
     @go build -o build/$1 ./$1/cmd
+
+clean:
+    @rm -f build/*

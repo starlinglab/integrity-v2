@@ -1,10 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/BurntSushi/toml"
-	"github.com/starlinglab/integrity-v2/util"
 )
 
 // See example_config.toml
@@ -17,16 +17,21 @@ type Config struct {
 		Host string `toml:"host"`
 	} `toml:"webhook"`
 	Dirs struct {
-		Files           string `toml:"files"`
-		C2PA            string `toml:"c2pa"`
-		C2PAManifests   string `toml:"c2pa_manifests"`
-		MetadataEncKeys string `toml:"metadata_enc_keys"`
-		FileEncKeys     string `toml:"file_enc_keys"`
+		Files             string `toml:"files"`
+		C2PA              string `toml:"c2pa"`
+		C2PAManifestTmpls string `toml:"c2pa_manifest_templates"`
+		MetadataEncKeys   string `toml:"metadata_enc_keys"`
+		FileEncKeys       string `toml:"file_enc_keys"`
 	} `toml:"dirs"`
 	Bins struct {
-		Ipfs   string `toml:"ipfs"`
-		Rclone string `toml:"rclone"`
+		Ipfs     string `toml:"ipfs"`
+		Rclone   string `toml:"rclone"`
+		C2patool string `toml:"c2patool"`
 	} `toml:"bins"`
+	C2PA struct {
+		PrivateKey string `toml:"private_key"`
+		SignCert   string `toml:"sign_cert"`
+	} `toml:"c2pa"`
 }
 
 var conf *Config
@@ -44,7 +49,8 @@ func GetConfig() *Config {
 	}
 	_, err := toml.DecodeFile(configPath, &conf)
 	if err != nil {
-		util.Die("failed to decode config (%s): %v", configPath, err)
+		fmt.Fprintf(os.Stderr, "failed to decode config: %v", configPath, err)
+		os.Exit(1)
 	}
 	return conf
 }
