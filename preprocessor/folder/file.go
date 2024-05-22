@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/starlinglab/integrity-v2/config"
 	"lukechampine.com/blake3"
 )
@@ -35,16 +35,17 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 	tee = io.TeeReader(tee, md)
 	tee = io.TeeReader(tee, blake)
 
-	mtype, err := mimetype.DetectReader(tee)
+	bytes, err := io.ReadAll(tee)
 	if err != nil {
 		return nil, err
 	}
+	mediaType := http.DetectContentType(bytes)
 
 	return map[string]any{
 		"sha256":        hex.EncodeToString(sha.Sum(nil)),
 		"md5":           hex.EncodeToString(md.Sum(nil)),
 		"blake3":        hex.EncodeToString(blake.Sum(nil)),
-		"media_type":    mtype.String(),
+		"media_type":    mediaType,
 		"file_size":     fileInfo.Size(),
 		"file_name":     fileInfo.Name(),
 		"last_modified": fileInfo.ModTime(),
