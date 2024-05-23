@@ -70,13 +70,15 @@ var (
 
 func init() {
 	cborTags := cbor.NewTagSet()
-	cborTags.Add(
+	err := cborTags.Add(
 		cbor.TagOptions{EncTag: cbor.EncTagRequired, DecTag: cbor.DecTagRequired},
 		reflect.TypeOf(CborCID{}),
 		42, // CIDs are type 42 in CBOR according to the DAG-CBOR spec
 	)
+	if err != nil {
+		panic(err)
+	}
 
-	var err error
 	// Permissive decoder
 	dagCborDecMode, err = cbor.DecOptions{
 		// Easier to re-encode to JSON later
