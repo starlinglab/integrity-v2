@@ -34,7 +34,7 @@ type GetAttOpts struct {
 //
 // This does not encode into the same CBOR it was decoded from, but that's okay
 // as encoding this struct should be not required anywhere.
-type AttValue struct {
+type AttEntry struct {
 	Signature struct {
 		PubKey [32]byte
 		Sig    [64]byte
@@ -53,6 +53,7 @@ type AttValue struct {
 		Encrypted bool
 		Timestamp time.Time
 	}
+	Version string
 }
 
 // Attributes for uploading.
@@ -104,6 +105,7 @@ func init() {
 }
 
 // GetAttestationRaw returns the raw bytes for the attribute from AA.
+//
 // If an encryption key was needed (to decrypt value for sig verify) but not provided
 // a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
 // exist in the database.
@@ -143,7 +145,14 @@ func GetAttestationRaw(cid, attr string, opts GetAttOpts) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func GetAttestation(cid, attr string, opts GetAttOpts) (*AttValue, error) {
+// GetAttestation returns the attestation for the provided attribute from AA.
+//
+// If an encryption key was needed (to decrypt value for sig verify) but not provided
+// a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
+// exist in the database.
+//
+// The Format fields of `opts` is ignored.
+func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
 	// Ignore format so CBOR is guaranteed
 	opts.Format = ""
 
@@ -152,7 +161,7 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttValue, error) {
 		return nil, err
 	}
 
-	var v AttValue
+	var v AttEntry
 	if err := dagCborDecMode.Unmarshal(data, &v); err != nil {
 		return nil, err
 	}

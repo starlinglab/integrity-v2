@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/starlinglab/integrity-v2/attr"
 	"github.com/starlinglab/integrity-v2/dummy"
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
@@ -24,6 +25,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = exportproof.Run(args)
 	case "inject-c2pa":
 		err = injectc2pa.Run(args)
+	case "attr":
+		err = attr.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	default:

@@ -252,11 +252,11 @@ func jsonReplace(v any) (any, error) {
 		if !strings.HasPrefix(vv, "{{") || !strings.HasSuffix(vv, "}}") {
 			return v, nil
 		}
-		av, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
+		ae, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", vv, err)
 		}
-		return av.Attestation.Value, nil
+		return ae.Attestation.Value, nil
 
 	case []any:
 		// Search and replace through each slice value

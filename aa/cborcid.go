@@ -35,19 +35,24 @@ func NewCborCID(cid string) (CborCID, error) {
 	return CborCID(append([]byte{0x00}, bin...)), nil
 }
 
-// MustCborCID is like NewCborCID but panics on error.
-/*
-func MustCborCID(cid string) CborCID {
-	c, err := NewCborCID(cid)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-*/
-
 // String returns the CborCID as a standard base32 CIDv1 string.
+// This fulfills the fmt.Stringer interface, useful for fmt.Print and similar.
 func (c CborCID) String() string {
 	// Change multibase prefix from 0x00 to "b" for base32, and convert to base32
 	return "b" + multibaseBase32.EncodeToString(c[1:])
+}
+
+// MarshalJSON fulfills the json.Marshaler interface.
+//
+// It looks like CID(bafy...) which indicates that the value was originally stored in binary
+// rather than a native JSON or string encoding.
+func (c CborCID) MarshalJSON() (text []byte, err error) {
+	// Subtract 1 due to first byte (0x00) not being encoded
+	// Add 2 for ending bytes of text repr. `)"`
+	enc := make([]byte, multibaseBase32.EncodedLen(len(c)-1)+2)
+	multibaseBase32.Encode(enc, c[1:])
+	enc[len(enc)-2] = ')'
+	enc[len(enc)-1] = '"'
+	text = append([]byte(`"CID(b`), enc...)
+	return
 }
