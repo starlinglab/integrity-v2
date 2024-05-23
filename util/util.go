@@ -11,9 +11,12 @@ import (
 	"github.com/starlinglab/integrity-v2/config"
 )
 
-func Die(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", a...)
-	os.Exit(1)
+// Fatal kills the program if the provided err is not nil, logging it as well.
+func Fatal(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
 }
 
 // GetCID returns the CIDv1 string for the bytes it reads.

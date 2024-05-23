@@ -6,6 +6,7 @@ import "fmt"
 
 // Run function is required, and takes all commandline args except the name of the command
 // like "dummy"
-func Run(args []string) {
-	fmt.Printf("I'm dummy and my args are: %v", args)
+func Run(args []string) error {
+	fmt.Printf("I'm dummy and my args are: %v\n", args)
+	return nil
 }

@@ -4,8 +4,9 @@ import (
 	"os"
 
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
+	"github.com/starlinglab/integrity-v2/util"
 )
 
 func main() {
-	exportproof.Run(os.Args[1:])
+	util.Fatal(exportproof.Run(os.Args[1:]))
 }
