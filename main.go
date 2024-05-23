@@ -6,9 +6,26 @@ import (
 	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/dummy"
+	exportproof "github.com/starlinglab/integrity-v2/export-proof"
+	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
 )
 
 // Main file for all-in-one build
+
+func run(cmd string, args []string) bool {
+	switch cmd {
+	case "dummy":
+		dummy.Run(args)
+	case "export-proof":
+		exportproof.Run(args)
+	case "inject-c2pa":
+		injectc2pa.Run(args)
+	default:
+		// Unknown command
+		return false
+	}
+	return true
+}
 
 func main() {
 	if len(os.Args) == 1 {
@@ -32,15 +49,4 @@ func main() {
 		fmt.Fprintln(os.Stderr, "unknown command")
 		os.Exit(1)
 	}
-}
-
-func run(cmd string, args []string) bool {
-	switch cmd {
-	case "dummy":
-		dummy.Run(args)
-	default:
-		// Unknown command
-		return false
-	}
-	return true
 }

@@ -53,6 +53,7 @@ require (
 	github.com/ipfs/boxo v0.19.0
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multicodec v0.9.0
 	github.com/x448/float16 v0.8.4 // indirect
 )
