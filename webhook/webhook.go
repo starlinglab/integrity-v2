@@ -3,6 +3,7 @@ package webhook
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -20,7 +21,10 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
-	w.Write(jsonData)
+	_, err = w.Write(jsonData)
+	if err != nil {
+		fmt.Println("Failed to write response:", err)
+	}
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
@@ -141,5 +145,8 @@ func Run(args []string) {
 	if host == "" {
 		host = ":8080"
 	}
-	http.ListenAndServe(host, r)
+	err := http.ListenAndServe(host, r)
+	if err != nil {
+		panic(err)
+	}
 }

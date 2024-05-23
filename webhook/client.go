@@ -33,12 +33,18 @@ func createNewFileForm(filePath string, metadata map[string]any) (string, io.Rea
 	if err != nil {
 		return "", nil, err
 	}
-	io.Copy(part, file)
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return "", nil, err
+	}
 	metadataString, err := json.Marshal(metadata)
 	if err != nil {
 		return "", nil, err
 	}
-	mp.WriteField("metadata", string(metadataString))
+	err = mp.WriteField("metadata", string(metadataString))
+	if err != nil {
+		return "", nil, err
+	}
 	return mp.FormDataContentType(), body, nil
 }
 
