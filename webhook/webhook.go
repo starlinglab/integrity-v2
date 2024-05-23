@@ -29,23 +29,31 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
-	v, err := aa.GetAllAttributes(cid)
+	v, err := aa.GetAttestation(cid, "", aa.GetAttOpts{
+		EncKey:         nil,
+		LeaveEncrypted: false,
+		Format:         "",
+	})
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJsonResponse(w, http.StatusOK, CastMapForJSON(v))
+	writeJsonResponse(w, http.StatusOK, v)
 }
 
 func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
 	attr := chi.URLParam(r, "attr")
-	v, err := aa.GetAttribute(cid, attr)
+	v, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{
+		EncKey:         nil,
+		LeaveEncrypted: false,
+		Format:         "",
+	})
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJsonResponse(w, http.StatusOK, CastMapForJSON(v))
+	writeJsonResponse(w, http.StatusOK, v)
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +121,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	attributes := ParseJsonToAttributes(jsonMap)
-	err = aa.PostNewAttribute(cid, attributes)
+	err = aa.SetAttestations(cid, false, attributes)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
