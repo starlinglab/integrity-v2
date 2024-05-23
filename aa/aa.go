@@ -157,6 +157,22 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttValue, error) {
 	return &v, nil
 }
 
+func GetAttestations(cid string, opts GetAttOpts) (*map[string]AttValue, error) {
+	// Ignore format so CBOR is guaranteed
+	opts.Format = ""
+
+	data, err := GetAttestationRaw(cid, "", opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var v map[string]AttValue
+	if err := dagCborDecMode.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
 func SetAttestations(cid string, index bool, kvs []PostKV) error {
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, cid))
 	if err != nil {

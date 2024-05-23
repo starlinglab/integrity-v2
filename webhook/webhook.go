@@ -29,7 +29,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
-	v, err := aa.GetAttestation(cid, "", aa.GetAttOpts{
+	v, err := aa.GetAttestations(cid, aa.GetAttOpts{
 		EncKey:         nil,
 		LeaveEncrypted: false,
 		Format:         "",
