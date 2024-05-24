@@ -18,9 +18,55 @@ func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
 	return err
 }
 
+// initFileStatusTableIfNotExists creates the project_metadata table if it does not exist
+func initProjectDataTableIfNotExists(connPool *pgxpool.Pool) error {
+	_, err := connPool.Exec(
+		db.GetDatabaseContext(),
+		PROJECT_METADATA_TABLE,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // initDbTableIfNotExists initializes the database tables if they do not exist
 func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
-	return initFileStatusTableIfNotExists(connPool)
+	err := initFileStatusTableIfNotExists(connPool)
+	if err != nil {
+		return err
+	}
+	err = initProjectDataTableIfNotExists(connPool)
+	return err
+}
+
+type ProjectQueryResult struct {
+	ProjectId        *string
+	ProjectPath      *string
+	AuthorType       *string
+	AuthorName       *string
+	AuthorIdentifier *string
+}
+
+func queryAllProjects(connPool *pgxpool.Pool) ([]ProjectQueryResult, error) {
+	var result []ProjectQueryResult
+	rows, err := connPool.Query(
+		db.GetDatabaseContext(),
+		"SELECT project_id, project_path, author_type, author_name, author_identifier FROM project_metadata;",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var row ProjectQueryResult
+		err := rows.Scan(&row.ProjectId, &row.ProjectPath, &row.AuthorType, &row.AuthorName, &row.AuthorIdentifier)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
 }
 
 // FileQueryResult represents the result of a file query

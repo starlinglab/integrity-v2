@@ -13,3 +13,14 @@ var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 	CREATE INDEX IF NOT EXISTS idx_file_status_file_path ON file_status (file_path);
 	CREATE INDEX IF NOT EXISTS idx_file_status_status ON file_status (status);
 `
+
+var PROJECT_METADATA_TABLE = `CREATE TABLE IF NOT EXISTS project_metadata (
+	id BIGSERIAL PRIMARY KEY,
+	project_id TEXT UNIQUE NOT NULL,
+	project_path TEXT UNIQUE NOT NULL,
+	author_type TEXT,
+	author_name TEXT,
+	author_identifier TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_project_metadata_project_id ON project_metadata (project_id);
+`
