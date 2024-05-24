@@ -57,20 +57,22 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 // handleNewFile takes a discovered file, update file status on database,
 // posts the new file and its metadata to the webhook server,
 // and returns the CID of the file according to the server.
-func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
+func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryResult) (string, error) {
 	result, err := queryAndSetFoundFileStatus(pgPool, filePath)
 	if err != nil {
 		return "", fmt.Errorf("error checking if file exists in database: %v", err)
 	}
+
 	status, errorMessage, cid := "", "", ""
 	if result != nil {
 		status = result.Status
 		errorMessage = result.ErrorMessage
 		cid = result.Cid
 	}
+
 	switch status {
 	case FileStatusUploading:
-		return "", fmt.Errorf("file %s is already uploading", filePath)
+		fmt.Println("retrying uploading file:", filePath)
 	case FileStatusSuccess:
 		return cid, nil
 	case FileStatusError:
@@ -79,6 +81,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	default:
 		// proceed to upload
 	}
+
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
 		if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
@@ -86,6 +89,25 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 		}
 		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
 	}
+
+	if project != nil {
+		metadata["project_id"] = *project.ProjectId
+		metadata["project_path"] = *project.ProjectPath
+		if project.AuthorType != nil || project.AuthorName != nil || project.AuthorIdentifier != nil {
+			author := map[string]string{}
+			if project.AuthorType != nil {
+				author["@type"] = *project.AuthorType
+			}
+			if project.AuthorName != nil {
+				author["name"] = *project.AuthorName
+			}
+			if project.AuthorIdentifier != nil {
+				author["identifier"] = *project.AuthorIdentifier
+			}
+			metadata["author"] = author
+		}
+	}
+
 	err = setFileStatusUploading(pgPool, filePath)
 	if err != nil {
 		return "", fmt.Errorf("error setting file status to uploading: %v", err)
@@ -97,6 +119,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 		}
 		return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
 	}
+
 	err = setFileStatusDone(pgPool, filePath, cid)
 	if err != nil {
 		return "", fmt.Errorf("error setting file status to done: %v", err)
