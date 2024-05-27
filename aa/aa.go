@@ -168,7 +168,7 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
 	return &v, nil
 }
 
-func GetAttestations(cid string, opts GetAttOpts) (*map[string]AttValue, error) {
+func GetAttestations(cid string, opts GetAttOpts) (*map[string]AttEntry, error) {
 	// Ignore format so CBOR is guaranteed
 	opts.Format = ""
 
@@ -177,7 +177,7 @@ func GetAttestations(cid string, opts GetAttOpts) (*map[string]AttValue, error) 
 		return nil, err
 	}
 
-	var v map[string]AttValue
+	var v map[string]AttEntry
 	if err := dagCborDecMode.Unmarshal(data, &v); err != nil {
 		return nil, err
 	}

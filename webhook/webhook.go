@@ -134,7 +134,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, map[string]string{"cid": cid})
 }
 
-func Run(args []string) {
+func Run(args []string) error {
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
 	r.Get("/c/{cid}", handleGetCid)
@@ -147,7 +147,5 @@ func Run(args []string) {
 	}
 	fmt.Println("Webhook server running on", host)
 	err := http.ListenAndServe(host, r)
-	if err != nil {
-		panic(err)
-	}
+	return err
 }
