@@ -2,12 +2,12 @@ package exportproof
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
-	"github.com/starlinglab/integrity-v2/util"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 	keyName string
 )
 
-func Run(args []string) {
+func Run(args []string) error {
 	fs := flag.NewFlagSet("export-proof", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "attribute")
@@ -29,21 +29,21 @@ func Run(args []string) {
 	err := fs.Parse(args)
 	if err != nil {
 		// Error is already printed
-		os.Exit(1)
+		return fmt.Errorf("")
 	}
 
 	// Validate input
 	if cid == "" {
-		util.Die("provide CID with --cid")
+		return fmt.Errorf("provide CID with --cid")
 	}
 	if attr == "" {
-		util.Die("provide attribute name with --attr")
+		return fmt.Errorf("provide attribute name with --attr")
 	}
 	if format != "cbor" && format != "vc" {
-		util.Die("format must be one of cbor,vc")
+		return fmt.Errorf("format must be one of cbor,vc")
 	}
 	if output == "" {
-		util.Die("must provide output path with -o")
+		return fmt.Errorf("must provide output path with -o")
 	}
 
 	conf := config.GetConfig()
@@ -54,7 +54,7 @@ func Run(args []string) {
 		var err error
 		key, err = os.ReadFile(filepath.Join(conf.Dirs.MetadataEncKeys, keyName))
 		if err != nil {
-			util.Die("error reading key: %v", err)
+			return fmt.Errorf("error reading key: %w", err)
 		}
 	}
 
@@ -68,7 +68,7 @@ func Run(args []string) {
 		},
 	)
 	if err != nil {
-		util.Die("error getting attestation: %v", err)
+		return fmt.Errorf("error getting attestation: %w", err)
 	}
 
 	var f *os.File
@@ -77,13 +77,15 @@ func Run(args []string) {
 	} else {
 		f, err = os.Create(output)
 		if err != nil {
-			util.Die("couldn't open output file: %v", err)
+			return fmt.Errorf("couldn't open output file: %w", err)
 		}
 		defer f.Close()
 	}
 
 	_, err = f.Write(data)
 	if err != nil {
-		util.Die("error writing output: %v", err)
+		return fmt.Errorf("error writing output: %w", err)
 	}
+
+	return nil
 }

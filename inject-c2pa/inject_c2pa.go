@@ -26,7 +26,7 @@ var (
 	manifestName string
 )
 
-func Run(args []string) {
+func Run(args []string) error {
 	fs := flag.NewFlagSet("inject-c2pa", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&manifestName, "manifest", "", "name of the C2PA manifest template")
@@ -39,10 +39,10 @@ func Run(args []string) {
 
 	// Validate input
 	if cid == "" {
-		util.Die("provide CID with --cid")
+		return fmt.Errorf("provide CID with --cid")
 	}
 	if manifestName == "" {
-		util.Die("provide manifest name with --manifest")
+		return fmt.Errorf("provide manifest name with --manifest")
 	}
 
 	conf := config.GetConfig()
@@ -51,20 +51,20 @@ func Run(args []string) {
 	manifestPath := filepath.Join(conf.Dirs.C2PAManifestTmpls, manifestName+".json")
 	b, err := os.ReadFile(manifestPath)
 	if err != nil {
-		util.Die("error reading manifest: %v", err)
+		return fmt.Errorf("error reading manifest: %w", err)
 	}
 	var manifestTmpl map[string]any
 	err = json.Unmarshal(b, &manifestTmpl)
 	if err != nil {
-		util.Die("error parsing manifest: %v", err)
+		return fmt.Errorf("error parsing manifest: %w", err)
 	}
 	manifest, err := jsonReplace(manifestTmpl)
 	if err != nil {
-		util.Die("error replacing values in manifest: %v", err)
+		return fmt.Errorf("error replacing values in manifest: %w", err)
 	}
 	manifestJson, err := json.Marshal(manifest.(map[string]any))
 	if err != nil {
-		util.Die("error encoding replaced manifest JSON: %v", err)
+		return fmt.Errorf("error encoding replaced manifest JSON: %w", err)
 	}
 
 	// File extension is required by c2patool, so figure that out first.
@@ -77,13 +77,13 @@ func Run(args []string) {
 	cidPath := filepath.Join(conf.Dirs.Files, cid)
 	f, err := os.Open(cidPath)
 	if err != nil {
-		util.Die("error opening CID file: %v", err)
+		return fmt.Errorf("error opening CID file: %w", err)
 	}
 	defer f.Close()
 	header := make([]byte, 512)
 	_, err = io.ReadFull(f, header)
 	if err != nil {
-		util.Die("error reading CID file: %v", err)
+		return fmt.Errorf("error reading CID file: %w", err)
 	}
 	mediaType := http.DetectContentType(header)
 	f.Close()
@@ -109,7 +109,7 @@ func Run(args []string) {
 	case "image/webp":
 		extension = "webp"
 	default:
-		util.Die("detected file type %s not supported by this application,"+
+		return fmt.Errorf("detected file type %s not supported by this application,"+
 			"possibly not by c2patool either. See "+
 			"https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats",
 			mediaType,
@@ -126,18 +126,18 @@ func Run(args []string) {
 	os.Remove(cidSymlink) // In case it was already created
 	err = os.Symlink(cidPath, cidSymlink)
 	if err != nil {
-		util.Die("error creating symlink to CID file: %v", err)
+		return fmt.Errorf("error creating symlink to CID file: %w", err)
 	}
 	defer os.Remove(cidSymlink)
 
 	// Load c2patool certs
 	c2paPrivKey, err := os.ReadFile(conf.C2PA.PrivateKey)
 	if err != nil {
-		util.Die("error reading c2pa.private_key file: %v", err)
+		return fmt.Errorf("error reading c2pa.private_key file: %w", err)
 	}
 	c2paSignCert, err := os.ReadFile(conf.C2PA.SignCert)
 	if err != nil {
-		util.Die("error reading c2pa.sign_cert file: %v", err)
+		return fmt.Errorf("error reading c2pa.sign_cert file: %w", err)
 	}
 
 	// Run c2patool
@@ -160,11 +160,11 @@ func Run(args []string) {
 
 	toolOutput, err := cmd.CombinedOutput()
 	if errors.Is(err, os.ErrNotExist) {
-		util.Die("c2patool not found at configured path, may not be installed: %s", conf.Bins.C2patool)
+		return fmt.Errorf("c2patool not found at configured path, may not be installed: %s", conf.Bins.C2patool)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\n%s\n", toolOutput)
-		util.Die("c2patool failed, see its output above. Make sure it is installed and at the configured path")
+		return fmt.Errorf("c2patool failed, see its output above. Make sure it is installed and at the configured path")
 	}
 
 	// Now that the temp output file has been created, try to remove it if any
@@ -176,12 +176,12 @@ func Run(args []string) {
 	// Calc CID and final path, move later
 	f, err = os.Open(tmpOut)
 	if err != nil {
-		util.Die("error opening temp file: %v", err)
+		return fmt.Errorf("error opening temp file: %w", err)
 	}
 	defer f.Close()
 	c2paCid, err := util.GetCid(f)
 	if err != nil {
-		util.Die("error getting output file CID: %v", err)
+		return fmt.Errorf("error getting output file CID: %w", err)
 	}
 	c2paFinalPath := filepath.Join(conf.Dirs.C2PA, c2paCid)
 
@@ -194,28 +194,28 @@ func Run(args []string) {
 		// Parse into c2paExport structs
 		slice, ok := att.Attestation.Value.([]any)
 		if !ok {
-			util.Die("schema error: c2pa_exports is not the correct type")
+			return fmt.Errorf("schema error: c2pa_exports is not the correct type")
 		}
 		for _, v := range slice {
 			m, ok := v.(map[string]any)
 			if !ok {
-				util.Die("schema error: c2pa_exports is not the correct type")
+				return fmt.Errorf("schema error: c2pa_exports is not the correct type")
 			}
 			var ce c2paExport
 			err := mapstructure.Decode(m, &ce)
 			if err != nil {
-				util.Die("schema error: c2pa_exports is not the correct type: %v", err)
+				return fmt.Errorf("schema error: c2pa_exports is not the correct type: %w", err)
 			}
 			c2paExports = append(c2paExports, ce)
 		}
 	} else if !errors.Is(err, aa.ErrNotFound) {
 		// Some unknown error
-		util.Die("error getting c2pa_exports attestation: %v", err)
+		return fmt.Errorf("error getting c2pa_exports attestation: %w", err)
 	}
 
 	c2paCidCbor, err := aa.NewCborCID(c2paCid)
 	if err != nil {
-		util.Die("error parsing CID of C2PA asset (%s): %v", c2paCid, err)
+		return fmt.Errorf("error parsing CID of C2PA asset (%s): %w", c2paCid, err)
 	}
 
 	c2paExports = append(c2paExports, c2paExport{
@@ -226,21 +226,22 @@ func Run(args []string) {
 
 	err = aa.SetAttestations(cid, false, []aa.PostKV{{Key: "c2pa_exports", Value: c2paExports}})
 	if err != nil {
-		util.Die("error setting c2pa_exports attestation: %v", err)
+		return fmt.Errorf("error setting c2pa_exports attestation: %w", err)
 	}
 	err = aa.AddRelationship(cid, "children", "derived", c2paCid)
 	if err != nil {
-		util.Die("error setting relationship attestations: %v", err)
+		return fmt.Errorf("error setting relationship attestations: %w", err)
 	}
 
 	// Move file if everything succeeded
 	err = util.MoveFile(tmpOut, c2paFinalPath)
 	if err != nil {
-		util.Die("error moving temp file into c2pa file storage: %v", err)
+		return fmt.Errorf("error moving temp file into c2pa file storage: %w", err)
 	}
 
 	// Tell user
 	fmt.Printf("Injected file stored at %s\n", c2paFinalPath)
+	return nil
 }
 
 func jsonReplace(v any) (any, error) {
@@ -251,11 +252,11 @@ func jsonReplace(v any) (any, error) {
 		if !strings.HasPrefix(vv, "{{") || !strings.HasSuffix(vv, "}}") {
 			return v, nil
 		}
-		av, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
+		ae, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
 		if err != nil {
-			return nil, fmt.Errorf("%s: %v", vv, err)
+			return nil, fmt.Errorf("%s: %w", vv, err)
 		}
-		return av.Attestation.Value, nil
+		return ae.Attestation.Value, nil
 
 	case []any:
 		// Search and replace through each slice value

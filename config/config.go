@@ -49,7 +49,7 @@ func GetConfig() *Config {
 	}
 	_, err := toml.DecodeFile(configPath, &conf)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to decode config: %v", configPath, err)
+		fmt.Fprintf(os.Stderr, "failed to decode config: %v\n", err)
 		os.Exit(1)
 	}
 	return conf

@@ -3,7 +3,7 @@ module github.com/starlinglab/integrity-v2
 go 1.22.1
 
 require (
-	github.com/BurntSushi/toml v1.3.2
+	github.com/BurntSushi/toml v1.4.0
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/go-chi/chi/v5 v5.0.12
 )
