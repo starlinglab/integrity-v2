@@ -8,6 +8,7 @@ import (
 	"github.com/starlinglab/integrity-v2/dummy"
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
+	"github.com/starlinglab/integrity-v2/webhook"
 )
 
 // Main file for all-in-one build
@@ -20,6 +21,8 @@ func run(cmd string, args []string) bool {
 		exportproof.Run(args)
 	case "inject-c2pa":
 		injectc2pa.Run(args)
+	case "webhook":
+		webhook.Run(args)
 	default:
 		// Unknown command
 		return false

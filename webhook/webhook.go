@@ -145,6 +145,7 @@ func Run(args []string) {
 	if host == "" {
 		host = ":8080"
 	}
+	fmt.Println("Webhook server running on", host)
 	err := http.ListenAndServe(host, r)
 	if err != nil {
 		panic(err)
