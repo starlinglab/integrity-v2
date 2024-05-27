@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,11 +47,16 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 
+	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+	syncRoot = filepath.Clean(syncRoot)
+	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
+
 	return map[string]any{
 		"media_type":    mediaType,
 		"file_name":     fileInfo.Name(),
 		"last_modified": fileInfo.ModTime().UTC().Format(time.RFC3339),
 		"time_created":  fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"asset_origin":  assetOrigin,
 	}, nil
 }
 
@@ -92,7 +98,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 
 	if project != nil {
 		metadata["project_id"] = *project.ProjectId
-		metadata["project_path"] = *project.ProjectPath
+		metadata["project_path"] = filepath.Clean(*project.ProjectPath)
 		if project.AuthorType != nil || project.AuthorName != nil || project.AuthorIdentifier != nil {
 			author := map[string]string{}
 			if project.AuthorType != nil {
