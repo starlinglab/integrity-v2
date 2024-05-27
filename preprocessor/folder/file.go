@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 
 	"github.com/starlinglab/integrity-v2/config"
 	"lukechampine.com/blake3"
@@ -48,7 +49,8 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		"media_type":    mediaType,
 		"file_size":     fileInfo.Size(),
 		"file_name":     fileInfo.Name(),
-		"last_modified": fileInfo.ModTime(),
+		"last_modified": fileInfo.ModTime().Format(time.RFC3339),
+		"date_created":  fileInfo.ModTime().Format(time.RFC3339),
 	}, nil
 }
 
