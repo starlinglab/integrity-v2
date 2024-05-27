@@ -8,7 +8,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/starlinglab/integrity-v2/config"
-	"github.com/starlinglab/integrity-v2/util"
 )
 
 func scanSyncDirectory(subPath string) ([]string, error) {
@@ -32,11 +31,11 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 	return fileList, err
 }
 
-func Run(args []string) {
+func Run(args []string) error {
 	// Scan whole sync directory
 	fileList, err := scanSyncDirectory("")
 	if err != nil {
-		util.Die("error scanning directory: %v", err)
+		return err
 	}
 	for _, filePath := range fileList {
 		cid, err := handleNewFile(filePath)
@@ -50,7 +49,7 @@ func Run(args []string) {
 	// Init directory watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		util.Die("error creating file watcher: %v", err)
+		return err
 	}
 	defer watcher.Close()
 
@@ -95,9 +94,10 @@ func Run(args []string) {
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	err = watcher.Add(scanRoot)
 	if err != nil {
-		util.Die("error adding watch for directory: %v", err)
+		return err
 	}
 
 	// Block main goroutine forever.
 	<-make(chan struct{})
+	return nil
 }
