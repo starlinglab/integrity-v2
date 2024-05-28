@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/webhook"
 	"lukechampine.com/blake3"
 )
 
@@ -59,11 +60,11 @@ func handleNewFile(filePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
 	}
-	cid, err := postFileMetadataToWebHook(filePath, metadata)
+	resp, err := webhook.PostFileToWebHook(filePath, metadata, webhook.PostGenericWebhookOpt{})
 	if err != nil {
 		return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
 	}
-	return cid, nil
+	return resp.Cid, nil
 }
 
 func checkShouldIncludeFile(info fs.FileInfo) bool {
