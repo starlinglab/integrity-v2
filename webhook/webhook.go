@@ -9,11 +9,14 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
+
+var JWT_SECRET = os.Getenv("JWT_SECRET")
 
 // Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
@@ -27,6 +30,36 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	if err != nil {
 		fmt.Println("Failed to write response:", err)
 	}
+}
+
+// middleware to validate HMAC JWT token if JWT_SECRET is set
+func jwtAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if JWT_SECRET != "" {
+			tokenString := r.Header.Get("Authorization")
+			if tokenString == "" {
+				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Missing authorization header"})
+				return
+			}
+			tokenString = tokenString[len("Bearer "):]
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+				}
+				return []byte(JWT_SECRET), nil
+			})
+			if err != nil {
+				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
+				return
+			}
+
+			if !token.Valid {
+				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Handle ping request
@@ -152,7 +185,10 @@ func Run(args []string) error {
 	r.Get("/ping", handlePing)
 	r.Get("/c/{cid}", handleGetCid)
 	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
-	r.Post("/generic", handleGenericFileUpload)
+	r.Route("/generic", func(r chi.Router) {
+		r.Use(jwtAuthMiddleware)
+		r.Post("/", handleGenericFileUpload)
+	})
 
 	host := config.GetConfig().Webhook.Host
 	if host == "" {
