@@ -19,13 +19,18 @@ var client = &http.Client{}
 // PostWebhookOpt is the options for posting a file to the webhook server
 // Source is the origin of the asset, which is used to determine the webhook endpoint
 // Jwt is the JWT token to authenticate the request
-type PostWebhookOpt struct {
+type PostGenericWebhookOpt struct {
 	Source    string
 	ProjectId string
 }
 
+type PostGenericWebhookResponse struct {
+	Cid   string `json:"cid,omitempty"`
+	Error error  `json:"error,omitempty"`
+}
+
 // PostFileToWebHook posts a file and its metadata to the webhook server
-func PostFileToWebHook(filePath string, metadata map[string]any, opts PostWebhookOpt) (map[string]any, error) {
+func PostFileToWebHook(filePath string, metadata map[string]any, opts PostGenericWebhookOpt) (*PostGenericWebhookResponse, error) {
 	sourcePath := opts.Source
 	if sourcePath == "" {
 		sourcePath = "generic"
@@ -105,10 +110,10 @@ func PostFileToWebHook(filePath string, metadata map[string]any, opts PostWebhoo
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("bad status code in response: %d", resp.StatusCode)
 	}
-	var value map[string]any
+	value := PostGenericWebhookResponse{}
 	err = json.NewDecoder(resp.Body).Decode(&value)
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return &value, nil
 }
