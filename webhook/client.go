@@ -28,7 +28,7 @@ type PostWebhookOpt struct {
 func PostFileToWebHook(filePath string, metadata map[string]any, opts PostWebhookOpt) (map[string]any, error) {
 	sourcePath := opts.Source
 	if sourcePath == "" {
-		sourcePath = "upload"
+		sourcePath = "generic"
 	}
 	url, err := urlpkg.Parse(fmt.Sprintf("http://%s/%s", config.GetConfig().Webhook.Host, sourcePath))
 	if err != nil {

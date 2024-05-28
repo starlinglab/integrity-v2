@@ -61,9 +61,9 @@ func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, v)
 }
 
-// Handle file upload request, accept file and metadata from multipart form,
+// Handle generic file upload request, accept file and metadata from multipart form,
 // calculate file CID, save to output directory, and set attestations to aa
-func handleFileUpload(w http.ResponseWriter, r *http.Request) {
+func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 	form, err := r.MultipartReader()
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -152,7 +152,7 @@ func Run(args []string) error {
 	r.Get("/ping", handlePing)
 	r.Get("/c/{cid}", handleGetCid)
 	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
-	r.Post("/upload", handleFileUpload)
+	r.Post("/generic", handleGenericFileUpload)
 
 	host := config.GetConfig().Webhook.Host
 	if host == "" {
