@@ -125,7 +125,7 @@ func Run(args []string) error {
 
 	host := config.GetConfig().Webhook.Host
 	if host == "" {
-		host = ":8080"
+		return fmt.Errorf("Webhook host not set in config")
 	}
 	fmt.Println("Webhook server running on", host)
 	err := http.ListenAndServe(host, r)

@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,13 +12,14 @@ import (
 func CopyOutputToFilePath(src io.Reader, originalFileName string, cid string) error {
 	outputDirectory := config.GetConfig().Dirs.Files
 	if outputDirectory == "" {
-		outputDirectory = "./output"
+		return fmt.Errorf("output directory not set")
 	}
-	if _, err := os.Stat(outputDirectory); os.IsNotExist(err) {
-		err = os.Mkdir(outputDirectory, 0755)
-		if err != nil {
-			return err
+	_, err := os.Stat(outputDirectory)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("output directory %s does not exist", outputDirectory)
 		}
+		return err
 	}
 	path := filepath.Join(outputDirectory, cid)
 	fd, err := os.Create(path)
