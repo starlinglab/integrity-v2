@@ -20,7 +20,8 @@ var client = &http.Client{}
 // Source is the origin of the asset, which is used to determine the webhook endpoint
 // Jwt is the JWT token to authenticate the request
 type PostWebhookOpt struct {
-	Source string
+	Source    string
+	ProjectId string
 }
 
 // PostFileToWebHook posts a file and its metadata to the webhook server
@@ -32,6 +33,10 @@ func PostFileToWebHook(filePath string, metadata map[string]any, opts PostWebhoo
 	url, err := urlpkg.Parse(fmt.Sprintf("http://%s/%s", config.GetConfig().Webhook.Host, sourcePath))
 	if err != nil {
 		return nil, err
+	}
+	q := url.Query()
+	if opts.ProjectId != "" {
+		q.Add("project_id", opts.ProjectId)
 	}
 	pr, pw := io.Pipe()
 	mp := multipart.NewWriter(pw)
