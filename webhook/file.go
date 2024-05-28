@@ -2,31 +2,22 @@ package webhook
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/config"
 )
 
-func CopyOutputToFilePath(src io.Reader, originalFileName string, cid string) error {
+// Check if the output directory is set and exists
+func getFileOutputDirectory() (string, error) {
 	outputDirectory := config.GetConfig().Dirs.Files
 	if outputDirectory == "" {
-		return fmt.Errorf("output directory not set")
+		fmt.Println("Error: Output directory not set")
+		return "", fmt.Errorf("Output directory not set")
 	}
 	_, err := os.Stat(outputDirectory)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("output directory %s does not exist", outputDirectory)
-		}
-		return err
+		fmt.Println("Error: Output directory not set")
+		return "", err
 	}
-	path := filepath.Join(outputDirectory, cid)
-	fd, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	_, err = io.Copy(fd, src)
-	return err
+	return outputDirectory, nil
 }

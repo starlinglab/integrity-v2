@@ -1,13 +1,15 @@
 package webhook
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
@@ -55,48 +57,71 @@ func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, v)
 }
 
-func handleUpload(w http.ResponseWriter, r *http.Request) {
-	// Multipart form
-	err := r.ParseMultipartForm(1024 << 20) // 1024 MB
+// Handle file upload request, accept file and metadata from multipart form,
+// calculate file CID, save to output directory, and set attestations to aa
+func handleFileUpload(w http.ResponseWriter, r *http.Request) {
+	form, err := r.MultipartReader()
 	if err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	files := r.MultipartForm.File["file"]
+	metadataString := []byte{}
 
-	if len(files) != 1 {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Please upload only one file as 'file'."})
-		return
-	}
-
-	originalFileName := files[0].Filename
-	file, err := files[0].Open()
+	outputDirectory, err := getFileOutputDirectory()
 	if err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	defer file.Close()
-
-	var buf bytes.Buffer
-	teeFile := io.TeeReader(file, &buf)
-	cid := util.CalculateFileCid(teeFile)
+	tempFileName := uuid.New()
+	tempFilePath := filepath.Join(outputDirectory, tempFileName.String())
+	fd, err := os.Create(tempFilePath)
+	if err != nil {
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	for {
+		part, err := form.NextPart()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if part.FormName() == "metadata" {
+			metadataString, err = io.ReadAll(part)
+			defer part.Close()
+			if err != nil {
+				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			//do something with files
+		} else if part.FormName() == "file" {
+			_, err = io.Copy(fd, part)
+			defer part.Close()
+			if err != nil {
+				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+	}
+	err = fd.Close()
+	if err != nil {
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	fd, err = os.Open(tempFilePath)
+	if err != nil {
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	cid := util.CalculateFileCid(fd)
 	if cid == "" {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Failed to generate CID for the file."})
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate CID for the file."})
 		return
 	}
-	err = CopyOutputToFilePath(&buf, originalFileName, cid)
-	if err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-
-	metadataFields := r.MultipartForm.Value["metadata"]
-
-	var metadataString []byte
-	if len(metadataFields) == 1 {
-		metadataString = []byte(metadataFields[0])
-	} else {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Please upload only one metadata file as 'metadata'."})
+	e := os.Rename(tempFilePath, filepath.Join(outputDirectory, cid))
+	if e != nil {
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": e.Error()})
 		return
 	}
 
@@ -109,7 +134,8 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	attributes := ParseJsonToAttributes(jsonMap)
 	err = aa.SetAttestations(cid, false, attributes)
 	if err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		fmt.Println("Error setting attestations:", err)
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -121,7 +147,7 @@ func Run(args []string) error {
 	r.Get("/ping", handlePing)
 	r.Get("/c/{cid}", handleGetCid)
 	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
-	r.Post("/upload", handleUpload)
+	r.Post("/upload", handleFileUpload)
 
 	host := config.GetConfig().Webhook.Host
 	if host == "" {
