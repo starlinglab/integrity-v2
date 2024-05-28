@@ -168,20 +168,36 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
 	return &v, nil
 }
 
-func GetAttestations(cid string, opts GetAttOpts) (*map[string]AttEntry, error) {
-	// Ignore format so CBOR is guaranteed
-	opts.Format = ""
-
-	data, err := GetAttestationRaw(cid, "", opts)
+// GetAttestations returns all attestations for the provided CID from AA.
+func GetAttestations(cid string) (map[string]*AttEntry, error) {
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, cid))
 	if err != nil {
 		return nil, err
 	}
 
-	var v map[string]AttEntry
+	resp, err := client.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, ErrNotFound
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad status code in response: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var v map[string]*AttEntry
 	if err := dagCborDecMode.Unmarshal(data, &v); err != nil {
 		return nil, err
 	}
-	return &v, nil
+	return v, nil
 }
 
 func SetAttestations(cid string, index bool, kvs []PostKV) error {

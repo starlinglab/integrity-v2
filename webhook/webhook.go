@@ -19,7 +19,6 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 		httpStatus = http.StatusInternalServerError
 		jsonData = []byte(`{"error": "Internal server error: ` + err.Error() + `"}`)
 	}
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(httpStatus)
 	_, err = w.Write(jsonData)
 	if err != nil {
@@ -33,11 +32,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
-	v, err := aa.GetAttestations(cid, aa.GetAttOpts{
-		EncKey:         nil,
-		LeaveEncrypted: false,
-		Format:         "",
-	})
+	v, err := aa.GetAttestations(cid)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
