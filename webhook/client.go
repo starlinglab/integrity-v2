@@ -1,7 +1,6 @@
 package webhook
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,59 +9,66 @@ import (
 	"net/http"
 	urlpkg "net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/config"
 )
 
 var client = &http.Client{}
 
-func createNewFileForm(filePath string, metadata map[string]any) (string, io.Reader, error) {
-	body := new(bytes.Buffer)
-	mp := multipart.NewWriter(body)
-	defer mp.Close()
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", nil, err
-	}
-	defer file.Close()
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return "", nil, err
-	}
-	part, err := mp.CreateFormFile("file", fileInfo.Name())
-	if err != nil {
-		return "", nil, err
-	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return "", nil, err
-	}
-	metadataString, err := json.Marshal(metadata)
-	if err != nil {
-		return "", nil, err
-	}
-	err = mp.WriteField("metadata", string(metadataString))
-	if err != nil {
-		return "", nil, err
-	}
-	return mp.FormDataContentType(), body, nil
-}
-
+// PostFileToWebHook posts a file and its metadata to the webhook server
 func PostFileToWebHook(filePath string, metadata map[string]any) (map[string]any, error) {
 	url, err := urlpkg.Parse(fmt.Sprintf("http://%s/upload", config.GetConfig().Webhook.Host))
 	if err != nil {
 		return nil, err
 	}
-	ct, body, err := createNewFileForm(filePath, metadata)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := client.Post(url.String(), ct, body)
+	pr, pw := io.Pipe()
+	mp := multipart.NewWriter(pw)
 
+	er := make(chan error)
+	go func() {
+		metadataString, err := json.Marshal(metadata)
+		if err != nil {
+			er <- err
+			return
+		}
+		err = mp.WriteField("metadata", string(metadataString))
+		if err != nil {
+			er <- err
+			return
+		}
+		file, err := os.Open(filePath)
+		if err != nil {
+			er <- err
+			return
+		}
+		defer file.Close()
+		part, err := mp.CreateFormFile("file", filepath.Base(filePath))
+		if err != nil {
+			er <- err
+			return
+		}
+		_, err = io.Copy(part, file)
+		if err != nil {
+			er <- err
+			return
+		}
+		err = mp.Close()
+		if err != nil {
+			er <- err
+			return
+		}
+	}()
+	resp, err := client.Post(url.String(), mp.FormDataContentType(), pr)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	err = <-er
+	if err != nil {
+		return nil, err
+	}
 
 	if resp.StatusCode == 400 {
 		return nil, errors.New("bad request")
