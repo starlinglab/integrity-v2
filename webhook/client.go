@@ -16,9 +16,20 @@ import (
 
 var client = &http.Client{}
 
+// PostWebhookOpt is the options for posting a file to the webhook server
+// Source is the origin of the asset, which is used to determine the webhook endpoint
+// Jwt is the JWT token to authenticate the request
+type PostWebhookOpt struct {
+	Source string
+}
+
 // PostFileToWebHook posts a file and its metadata to the webhook server
-func PostFileToWebHook(filePath string, metadata map[string]any) (map[string]any, error) {
-	url, err := urlpkg.Parse(fmt.Sprintf("http://%s/upload", config.GetConfig().Webhook.Host))
+func PostFileToWebHook(filePath string, metadata map[string]any, opts PostWebhookOpt) (map[string]any, error) {
+	sourcePath := opts.Source
+	if sourcePath == "" {
+		sourcePath = "upload"
+	}
+	url, err := urlpkg.Parse(fmt.Sprintf("http://%s/%s", config.GetConfig().Webhook.Host, sourcePath))
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +70,17 @@ func PostFileToWebHook(filePath string, metadata map[string]any) (map[string]any
 			return
 		}
 	}()
-	resp, err := client.Post(url.String(), mp.FormDataContentType(), pr)
+	req, err := http.NewRequest("POST", url.String(), pr)
+
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mp.FormDataContentType())
+	Jwt := config.GetConfig().Webhook.Jwt
+	if Jwt != "" {
+		req.Header.Add("Authorization", "Bearer "+Jwt)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
