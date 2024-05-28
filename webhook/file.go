@@ -19,11 +19,7 @@ func CopyOutputToFilePath(src io.Reader, originalFileName string, cid string) er
 			return err
 		}
 	}
-	ext := filepath.Ext(originalFileName)
 	path := filepath.Join(outputDirectory, cid)
-	if ext != "" {
-		path += ext
-	}
 	fd, err := os.Create(path)
 	if err != nil {
 		return err
