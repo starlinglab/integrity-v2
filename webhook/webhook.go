@@ -91,22 +91,9 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metadataFields := r.MultipartForm.Value["metadata"]
-	metadataFiles := r.MultipartForm.File["metadata"]
 
 	var metadataString []byte
-	if len(metadataFiles) == 1 {
-		metadataFile, err := metadataFiles[0].Open()
-		if err != nil {
-			writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-			return
-		}
-		defer metadataFile.Close()
-		metadataString, err = io.ReadAll(metadataFile)
-		if err != nil {
-			writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-			return
-		}
-	} else if len(metadataFields) == 1 {
+	if len(metadataFields) == 1 {
 		metadataString = []byte(metadataFields[0])
 	} else {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Please upload only one metadata file as 'metadata'."})
