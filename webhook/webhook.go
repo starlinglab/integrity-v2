@@ -15,6 +15,7 @@ import (
 	"github.com/starlinglab/integrity-v2/util"
 )
 
+// Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -28,10 +29,12 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	}
 }
 
+// Handle ping request
 func handlePing(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, map[string]string{"message": "pong"})
 }
 
+// Handle quest to get all attributes for a CID
 func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
 	v, err := aa.GetAttestations(cid)
@@ -42,6 +45,7 @@ func handleGetCid(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, v)
 }
 
+// Handle request to get a specific attribute for a CID
 func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
 	cid := chi.URLParam(r, "cid")
 	attr := chi.URLParam(r, "attr")
@@ -142,6 +146,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, http.StatusOK, map[string]string{"cid": cid})
 }
 
+// Run the webhook server
 func Run(args []string) error {
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
