@@ -44,7 +44,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handle quest to get all attributes for a CID
-func handleGetCid(w http.ResponseWriter, r *http.Request) {
+func handleGetCid(w http.ResponseWriter, r *http.Request) { //nolint:unused
 	cid := chi.URLParam(r, "cid")
 	v, err := aa.GetAttestations(cid)
 	if err != nil {
@@ -55,7 +55,7 @@ func handleGetCid(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handle request to get a specific attribute for a CID
-func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) {
+func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) { //nolint:unused
 	cid := chi.URLParam(r, "cid")
 	attr := chi.URLParam(r, "attr")
 	v, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{
@@ -154,8 +154,8 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 func Run(args []string) error {
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
-	r.Get("/c/{cid}", handleGetCid)
-	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
+	// r.Get("/c/{cid}", handleGetCid)
+	// r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
 	r.Route("/generic", func(r chi.Router) {
 		if jwtTokenAuth != nil {
 			r.Use(jwtauth.Verifier(jwtTokenAuth))
