@@ -6,9 +6,9 @@ jwt = "foo.bar.baz"           # Put shared JWT for AA here
 
 [webhook]
 host = "localhost:4321"
-jwt = "" # share JWT for webhook
+jwt = "" # shared JWT for webhook
 
-# JWT secret key is passed in through env var/file for security
+# JWT secret key is passed in as JWT_SECRET through env var/file for security
 
 [dirs]
 # All paths should be absolute

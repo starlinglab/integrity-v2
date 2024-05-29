@@ -16,7 +16,7 @@ import (
 	"github.com/starlinglab/integrity-v2/util"
 )
 
-var JWT_SECRET = os.Getenv("JWT_SECRET")
+var jwtSecret = os.Getenv("JWT_SECRET")
 
 // Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
@@ -151,8 +151,8 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	cid := util.CalculateFileCid(fd)
-	if cid == "" {
+	cid, err := util.CalculateFileCid(fd)
+	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate CID for the file."})
 		return
 	}

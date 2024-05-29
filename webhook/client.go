@@ -17,11 +17,9 @@ import (
 var client = &http.Client{}
 
 // PostWebhookOpt is the options for posting a file to the webhook server
-// Source is the origin of the asset, which is used to determine the webhook endpoint
-// Jwt is the JWT token to authenticate the request
 type PostGenericWebhookOpt struct {
-	Source    string
-	ProjectId string
+	Source    string // Source is the origin of the asset, which is used to determine the webhook endpoint
+	ProjectId string // ProjectId is the project specific ID where the asset belongs
 }
 
 type PostGenericWebhookResponse struct {
@@ -81,9 +79,9 @@ func PostFileToWebHook(filePath string, metadata map[string]any, opts PostGeneri
 		return nil, err
 	}
 	req.Header.Set("Content-Type", mp.FormDataContentType())
-	Jwt := config.GetConfig().Webhook.Jwt
-	if Jwt != "" {
-		req.Header.Add("Authorization", "Bearer "+Jwt)
+	jwt := config.GetConfig().Webhook.Jwt
+	if jwt != "" {
+		req.Header.Add("Authorization", "Bearer "+jwt)
 	}
 	resp, err := client.Do(req)
 	if err != nil {

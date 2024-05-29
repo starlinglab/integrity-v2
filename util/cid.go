@@ -16,7 +16,7 @@ import (
 	multicodec "github.com/multiformats/go-multicodec"
 )
 
-func CalculateFileCid(fileReader io.Reader) string {
+func CalculateFileCid(fileReader io.Reader) (string, error) {
 	ds := dsync.MutexWrap(datastore.NewNullDatastore())
 	bs := blockstore.NewBlockstore(ds)
 	bs = blockstore.NewIdStore(bs)
@@ -36,11 +36,11 @@ func CalculateFileCid(fileReader io.Reader) string {
 	}
 	ufsBuilder, err := ufsImportParams.New(chunker.NewSizeSplitter(fileReader, chunker.DefaultBlockSize)) // Split the file up into fixed sized 256KiB chunks
 	if err != nil {
-		return cid.Undef.String()
+		return cid.Undef.String(), err
 	}
 	nd, err := balanced.Layout(ufsBuilder) // Arrange the graph with a balanced layout
 	if err != nil {
-		return cid.Undef.String()
+		return cid.Undef.String(), err
 	}
-	return nd.Cid().String()
+	return nd.Cid().String(), nil
 }
