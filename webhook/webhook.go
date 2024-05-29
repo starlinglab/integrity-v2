@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/google/uuid"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
@@ -86,13 +85,13 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	tempFileName := uuid.New()
-	tempFilePath := filepath.Join(outputDirectory, tempFileName.String())
-	fd, err := os.Create(tempFilePath)
+	tempFile, err := os.CreateTemp("", "integrity-v2-webhook-file")
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
 	for {
 		part, err := form.NextPart()
 		if err == io.EOF {
@@ -110,7 +109,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			//do something with files
 		} else if part.FormName() == "file" {
-			_, err = io.Copy(fd, part)
+			_, err = io.Copy(tempFile, part)
 			defer part.Close()
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -118,24 +117,19 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	err = fd.Close()
+	_, err = tempFile.Seek(0, io.SeekStart)
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	fd, err = os.Open(tempFilePath)
-	if err != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	cid, err := util.CalculateFileCid(fd)
+	cid, err := util.CalculateFileCid(tempFile)
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate CID for the file."})
 		return
 	}
-	e := os.Rename(tempFilePath, filepath.Join(outputDirectory, cid))
-	if e != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": e.Error()})
+	err = util.MoveFile(tempFile.Name(), filepath.Join(outputDirectory, cid))
+	if err != nil {
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
