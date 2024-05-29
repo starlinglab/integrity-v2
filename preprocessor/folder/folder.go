@@ -10,6 +10,7 @@ import (
 	"github.com/starlinglab/integrity-v2/config"
 )
 
+// scanSyncDirectory scans a path under the sync directory and returns a list of files
 func scanSyncDirectory(subPath string) ([]string, error) {
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	if scanRoot == "" {

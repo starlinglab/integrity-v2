@@ -18,6 +18,7 @@ import (
 	"lukechampine.com/blake3"
 )
 
+// getFileMetadata calculates and returns a map of attributes for a file
 func getFileMetadata(filePath string) (map[string]any, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -55,6 +56,7 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 	}, nil
 }
 
+// handleNewFile posts a new file and its metadata to the webhook server
 func handleNewFile(filePath string) (string, error) {
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
@@ -67,6 +69,7 @@ func handleNewFile(filePath string) (string, error) {
 	return resp.Cid, nil
 }
 
+// checkShouldIncludeFile reports whether the file should be included in the processing
 func checkShouldIncludeFile(info fs.FileInfo) bool {
 	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
 	var ignoreFileNamePrefix byte = '.'
