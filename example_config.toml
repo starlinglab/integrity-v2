@@ -17,9 +17,13 @@ metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
 file_enc_keys = "/path/to/file-encryption-key/storage/"
 
 [bins]
+# Most of these are optional.
+# The CLI tools you use will tell you if they are needed.
+
 ipfs = "/usr/local/bin/ipfs"
 rclone = "/usr/bin/rclone"
 c2patool = "/usr/local/bin/c2patool"
+w3 = "/usr/bin/w3"                   # https://web3.storage/docs/w3cli/
 
 [c2pa]
 private_key = "/path/to/c2pa/private.key"

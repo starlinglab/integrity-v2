@@ -179,7 +179,7 @@ func Run(args []string) error {
 		return fmt.Errorf("error opening temp file: %w", err)
 	}
 	defer f.Close()
-	c2paCid, err := util.GetCid(f)
+	c2paCid, err := util.GetCID(f)
 	if err != nil {
 		return fmt.Errorf("error getting output file CID: %w", err)
 	}
@@ -290,5 +290,5 @@ func jsonReplace(v any) (any, error) {
 type c2paExport struct {
 	Manifest  string     `cbor:"manifest"`
 	CID       aa.CborCID `cbor:"cid"`
-	Timestamp string     `cbor:"timestamp"`
+	Timestamp string     `cbor:"timestamp"` // RFC 3339
 }

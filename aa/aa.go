@@ -203,6 +203,47 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 	return nil
 }
 
+type singleSet[T bool | []byte] struct {
+	Value  any `cbor:"value"`
+	EncKey T   `cbor:"encKey"`
+}
+
+// AppendAttestation appends to an array stored at attr.
+//
+// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccidattr
+func AppendAttestation(cid, attr string, val any) error {
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s", config.GetConfig().AA.Url, cid, attr))
+	if err != nil {
+		return err
+	}
+	q := url.Query()
+	q.Add("append", "1")
+	url.RawQuery = q.Encode()
+
+	b, err := dagCborEncMode.Marshal(singleSet[bool]{val, false})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/cbor")
+	req.Header.Add("Authorization", "Bearer "+config.GetConfig().AA.Jwt)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("bad status code in response: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 type relBody struct {
 	Type string  `cbor:"type"`
 	Verb string  `cbor:"verb"`

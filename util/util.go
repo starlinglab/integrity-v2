@@ -2,12 +2,14 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 
+	car "github.com/photon-storage/go-ipfs-car"
 	"github.com/starlinglab/integrity-v2/config"
 )
 
@@ -20,7 +22,7 @@ func Fatal(err error) {
 }
 
 // GetCID returns the CIDv1 string for the bytes it reads.
-func GetCid(r io.Reader) (string, error) {
+func GetCID(r io.Reader) (string, error) {
 	ipfsArgs := []string{
 		"add",
 		// "many of these settings are the default, but for the purposes of being clear in case
@@ -84,4 +86,15 @@ func MoveFile(sourcePath, destPath string) error {
 		return fmt.Errorf("couldn't remove source file: %v", err)
 	}
 	return nil
+}
+
+// GetCAR returns a CARv1 file created from the provided reader.
+// Currently this uses the default IPFS kubo settings under the hood, and so the
+// CIDv1 represented by the CAR file should exactly match the CIDv1 from GetCid
+// or IPFS kubo every time.
+//
+// I think this function will load the whole file into memory, so watch out for that.
+func GetCAR(r io.Reader) (*car.CarV1, error) {
+	b := car.NewBuilder()
+	return b.Buildv1(context.Background(), r, car.ImportOpts.CIDv1())
 }
