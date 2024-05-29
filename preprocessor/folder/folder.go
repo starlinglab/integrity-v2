@@ -12,6 +12,8 @@ import (
 	"github.com/starlinglab/integrity-v2/database"
 )
 
+// findProjectWithFilePath finds the project
+// in which ProjectPath is the parent directory of the given file path
 func findProjectWithFilePath(filePath string, projects []ProjectQueryResult) *ProjectQueryResult {
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	syncRoot = filepath.Clean(syncRoot)

@@ -14,6 +14,7 @@ var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 	CREATE INDEX IF NOT EXISTS idx_file_status_status ON file_status (status);
 `
 
+// schema for project_metadata table
 var PROJECT_METADATA_TABLE = `CREATE TABLE IF NOT EXISTS project_metadata (
 	id BIGSERIAL PRIMARY KEY,
 	project_id TEXT UNIQUE NOT NULL,
