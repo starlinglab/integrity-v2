@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
@@ -17,6 +17,13 @@ import (
 )
 
 var jwtSecret = os.Getenv("JWT_SECRET")
+var jwtTokenAuth *jwtauth.JWTAuth
+
+func init() {
+	if jwtSecret != "" {
+		jwtTokenAuth = jwtauth.New("HS256", []byte(jwtSecret), nil)
+	}
+}
 
 // Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
@@ -30,36 +37,6 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	if err != nil {
 		fmt.Println("Failed to write response:", err)
 	}
-}
-
-// middleware to validate HMAC JWT token if JWT_SECRET is set
-func jwtAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if JWT_SECRET != "" {
-			tokenString := r.Header.Get("Authorization")
-			if tokenString == "" {
-				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Missing authorization header"})
-				return
-			}
-			tokenString = tokenString[len("Bearer "):]
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-				}
-				return []byte(JWT_SECRET), nil
-			})
-			if err != nil {
-				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
-				return
-			}
-
-			if !token.Valid {
-				writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 // Handle ping request
@@ -186,7 +163,10 @@ func Run(args []string) error {
 	r.Get("/c/{cid}", handleGetCid)
 	r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
 	r.Route("/generic", func(r chi.Router) {
-		r.Use(jwtAuthMiddleware)
+		if jwtTokenAuth != nil {
+			r.Use(jwtauth.Verifier(jwtTokenAuth))
+			r.Use(jwtauth.Authenticator(jwtTokenAuth))
+		}
 		r.Post("/", handleGenericFileUpload)
 	})
 
