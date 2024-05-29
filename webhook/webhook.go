@@ -92,6 +92,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
+	cid := ""
 	for {
 		part, err := form.NextPart()
 		if err == io.EOF {
@@ -109,22 +110,36 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			//do something with files
 		} else if part.FormName() == "file" {
-			_, err = io.Copy(tempFile, part)
+			pr, pw := io.Pipe()
+			cidChan := make(chan string, 1)
+			errChan := make(chan error, 1)
+			go func() {
+				cid, err := util.CalculateFileCid(pr)
+				cidChan <- cid
+				errChan <- err
+			}()
+			fileWriter := io.MultiWriter(tempFile, pw)
+			_, err = io.Copy(fileWriter, part)
 			defer part.Close()
+			if err != nil {
+				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			err = pw.Close()
+			if err != nil {
+				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			cid = <-cidChan
+			err = <-errChan
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
 		}
 	}
-	_, err = tempFile.Seek(0, io.SeekStart)
-	if err != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	cid, err := util.CalculateFileCid(tempFile)
-	if err != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to generate CID for the file."})
+	if cid == "" {
+		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "No file provided"})
 		return
 	}
 	err = util.MoveFile(tempFile.Name(), filepath.Join(outputDirectory, cid))
