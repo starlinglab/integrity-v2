@@ -8,6 +8,7 @@ import (
 	db "github.com/starlinglab/integrity-v2/database"
 )
 
+// initFileStatusTableIfNotExists creates the file_status table if it does not exist
 func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
@@ -19,17 +20,20 @@ func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
 	return nil
 }
 
+// initDbTableIfNotExists initializes the database tables if they do not exist
 func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
 	err := initFileStatusTableIfNotExists(connPool)
 	return err
 }
 
+// FileQueryResult represents the result of a file query
 type FileQueryResult struct {
 	Status       *string
 	Cid          *string
 	ErrorMessage *string
 }
 
+// queryIfFileExists checks if a file is already found in the database
 func queryIfFileExists(connPool *pgxpool.Pool, filePath string) (*FileQueryResult, error) {
 	var result FileQueryResult
 	err := connPool.QueryRow(
@@ -46,6 +50,7 @@ func queryIfFileExists(connPool *pgxpool.Pool, filePath string) (*FileQueryResul
 	return &result, nil
 }
 
+// setFileStatusFound add a file to database with status found
 func setFileStatusFound(connPool *pgxpool.Pool, filePath string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
@@ -58,6 +63,7 @@ func setFileStatusFound(connPool *pgxpool.Pool, filePath string) error {
 	return err
 }
 
+// setFileStatusUploading sets the status of a file to uploading
 func setFileStatusUploading(connPool *pgxpool.Pool, filePath string, sha256 string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
@@ -70,6 +76,7 @@ func setFileStatusUploading(connPool *pgxpool.Pool, filePath string, sha256 stri
 	return err
 }
 
+// setFileStatusDone sets the status of a file to done with cid
 func setFileStatusDone(connPool *pgxpool.Pool, filePath string, cid string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
@@ -82,6 +89,7 @@ func setFileStatusDone(connPool *pgxpool.Pool, filePath string, cid string) erro
 	return err
 }
 
+// setFileStatusError sets the status of a file to error with the error message
 func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),

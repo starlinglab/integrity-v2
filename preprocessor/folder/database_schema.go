@@ -1,5 +1,6 @@
 package preprocessor_folder
 
+// schema for file_status table
 var FILE_STATUS_TABLE = `CREATE TABLE IF NOT EXISTS file_status (
 		id BIGSERIAL PRIMARY KEY,
 		file_path TEXT UNIQUE NOT NULL,

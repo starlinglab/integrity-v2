@@ -14,10 +14,12 @@ var (
 	pgOnce sync.Once
 )
 
+// GetDatabaseContext returns a new context for database operations
 func GetDatabaseContext() context.Context {
 	return context.Background()
 }
 
+// GetDatabaseConnectionPool returns a thread safe connection pool singleton
 func GetDatabaseConnectionPool() (*pgxpool.Pool, error) {
 	var pgErr error = nil
 	pgOnce.Do(func() {
@@ -35,6 +37,7 @@ func GetDatabaseConnectionPool() (*pgxpool.Pool, error) {
 	return pgPool, pgErr
 }
 
+// CloseDatabaseConnectionPool closes the database connection pool
 func CloseDatabaseConnectionPool() {
 	if pgPool != nil {
 		pgPool.Close()
