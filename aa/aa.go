@@ -244,13 +244,10 @@ type singleSet[T bool | []byte] struct {
 //
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccidattr
 func AppendAttestation(cid, attr string, val any) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s", config.GetConfig().AA.Url, cid, attr))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s?append=1", config.GetConfig().AA.Url, cid, attr))
 	if err != nil {
 		return err
 	}
-	q := url.Query()
-	q.Add("append", "1")
-	url.RawQuery = q.Encode()
 
 	b, err := dagCborEncMode.Marshal(singleSet[bool]{val, false})
 	if err != nil {
