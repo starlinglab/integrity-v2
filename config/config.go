@@ -15,6 +15,7 @@ type Config struct {
 	} `toml:"aa"`
 	Webhook struct {
 		Host string `toml:"host"`
+		Jwt  string `toml:"jwt"`
 	} `toml:"webhook"`
 	Dirs struct {
 		Files             string `toml:"files"`

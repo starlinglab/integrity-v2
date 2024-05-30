@@ -11,6 +11,7 @@ import (
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
+	"github.com/starlinglab/integrity-v2/webhook"
 )
 
 // Main file for all-in-one build
@@ -28,6 +29,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = injectc2pa.Run(args)
 	case "attr":
 		err = attr.Run(args)
+	case "webhook":
+		err = webhook.Run(args)
 	case "upload":
 		err = upload.Run(args)
 	case "-h", "--help", "help":
