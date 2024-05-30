@@ -15,15 +15,6 @@ import (
 	"github.com/starlinglab/integrity-v2/util"
 )
 
-var jwtSecret = os.Getenv("JWT_SECRET")
-var jwtTokenAuth *jwtauth.JWTAuth
-
-func init() {
-	if jwtSecret != "" {
-		jwtTokenAuth = jwtauth.New("HS256", []byte(jwtSecret), nil)
-	}
-}
-
 // Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	jsonData, err := json.Marshal(data)
@@ -167,15 +158,19 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 
 // Run the webhook server
 func Run(args []string) error {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		return fmt.Errorf("JWT_SECRET not set")
+	}
+	jwtTokenAuth := jwtauth.New("HS256", []byte(jwtSecret), nil)
+
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
 	// r.Get("/c/{cid}", handleGetCid)
 	// r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
 	r.Route("/generic", func(r chi.Router) {
-		if jwtTokenAuth != nil {
-			r.Use(jwtauth.Verifier(jwtTokenAuth))
-			r.Use(jwtauth.Authenticator(jwtTokenAuth))
-		}
+		r.Use(jwtauth.Verifier(jwtTokenAuth))
+		r.Use(jwtauth.Authenticator(jwtTokenAuth))
 		r.Post("/", handleGenericFileUpload)
 	})
 
