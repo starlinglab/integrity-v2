@@ -30,19 +30,23 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
+	mediaType := http.DetectContentType(buffer[:n])
+	file.Seek(0, 0)
+
 	sha := sha256.New()
 	md := md5.New()
 	blake := blake3.New(32, nil)
 
-	tee := io.TeeReader(file, sha)
-	tee = io.TeeReader(tee, md)
-	tee = io.TeeReader(tee, blake)
-
-	bytes, err := io.ReadAll(tee)
+	writers := io.MultiWriter(sha, md, blake)
+	_, err = io.Copy(writers, file)
 	if err != nil {
 		return nil, err
 	}
-	mediaType := http.DetectContentType(bytes)
 
 	return map[string]any{
 		"sha256":        hex.EncodeToString(sha.Sum(nil)),
