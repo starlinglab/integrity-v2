@@ -178,7 +178,7 @@ func Run(args []string) error {
 		return fmt.Errorf("error opening temp file: %w", err)
 	}
 	defer f.Close()
-	c2paCid, err := util.GetCID(f)
+	c2paCid, err := util.CalculateFileCid(f)
 	if err != nil {
 		return fmt.Errorf("error getting output file CID: %w", err)
 	}

@@ -6,7 +6,7 @@ jwt = "foo.bar.baz"           # Put shared JWT for AA here
 
 [webhook]
 host = "localhost:4321"
-jwt = "" # shared JWT for webhook
+jwt = ""                # shared JWT for webhook
 
 # JWT secret key is passed in as JWT_SECRET through env var/file for security
 
@@ -19,10 +19,9 @@ metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
 file_enc_keys = "/path/to/file-encryption-key/storage/"
 
 [bins]
-# Most of these are optional.
+# All of these are optional.
 # The CLI tools you use will tell you if they are needed.
 
-ipfs = "/usr/local/bin/ipfs"
 rclone = "/usr/bin/rclone"
 c2patool = "/usr/local/bin/c2patool"
 w3 = "/usr/bin/w3"                   # https://web3.storage/docs/w3cli/

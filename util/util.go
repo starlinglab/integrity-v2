@@ -1,16 +1,12 @@
 package util
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 
 	car "github.com/photon-storage/go-ipfs-car"
-	"github.com/starlinglab/integrity-v2/config"
 )
 
 // Fatal kills the program if the provided err is not nil, logging it as well.
@@ -19,40 +15,6 @@ func Fatal(err error) {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-}
-
-// GetCID returns the CIDv1 string for the bytes it reads.
-func GetCID(r io.Reader) (string, error) {
-	ipfsArgs := []string{
-		"add",
-		// "many of these settings are the default, but for the purposes of being clear in case
-		// the default ever change, we want to specify them explicitly."
-		// -- https://github.com/starlinglab/authenticated-attributes/issues/1
-		"--only-hash=true",
-		"--wrap-with-directory=false",
-		"--cid-version=1",
-		"--hash=sha2-256",
-		"--pin=true",
-		"--raw-leaves=true",
-		"--chunker=size-262144",
-		"--nocopy=false",
-		"--fscache=false",
-		"--inline=false",
-		"--inline-limit=32",
-		"--quieter",
-		"-",
-	}
-	ipfs := config.GetConfig().Bins.Ipfs
-	cmd := exec.Command(ipfs, ipfsArgs...)
-	cmd.Stdin = r
-	cid, err := cmd.Output()
-	if errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("ipfs not found at configured path, may not be installed: %s", ipfs)
-	}
-	if err != nil {
-		return "", err
-	}
-	return string(bytes.TrimSpace(cid)), nil
 }
 
 // MoveFile moves the provided file, even if source and dest are part of different file systems.
@@ -90,10 +52,11 @@ func MoveFile(sourcePath, destPath string) error {
 
 // GetCAR returns a CARv1 file created from the provided reader.
 // Currently this uses the default IPFS kubo settings under the hood, and so the
-// CIDv1 represented by the CAR file should exactly match the CIDv1 from GetCid
+// CIDv1 represented by the CAR file should exactly match the CIDv1 from CalculateFileCid
 // or IPFS kubo every time.
 //
-// I think this function will load the whole file into memory, so watch out for that.
+// This function loads the whole file into memory. Watch out!
+// https://github.com/starlinglab/integrity-v2/issues/17
 func GetCAR(r io.Reader) (*car.CarV1, error) {
 	b := car.NewBuilder()
 	return b.Buildv1(context.Background(), r, car.ImportOpts.CIDv1())

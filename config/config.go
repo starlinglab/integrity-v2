@@ -25,7 +25,6 @@ type Config struct {
 		FileEncKeys       string `toml:"file_enc_keys"`
 	} `toml:"dirs"`
 	Bins struct {
-		Ipfs     string `toml:"ipfs"`
 		Rclone   string `toml:"rclone"`
 		C2patool string `toml:"c2patool"`
 		W3       string `toml:"w3"`
