@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/photon-storage/go-ipfs-car v0.0.0-00010101000000-000000000000
+	github.com/photon-storage/go-ipfs-car v0.0.0-20240530014616-17d95f03173f
 )
 
 require (
@@ -203,5 +203,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
-
-replace github.com/photon-storage/go-ipfs-car => github.com/starlinglab/go-ipfs-car v0.0.0-20240528214402-c2de8c7c60b6
