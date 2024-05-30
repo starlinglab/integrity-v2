@@ -1,6 +1,7 @@
-package preprocessor_folder
+package folder
 
 import (
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -12,7 +13,7 @@ import (
 func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
-		FILE_STATUS_TABLE,
+		fileStatusTableSchema,
 	)
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func setFileStatusDone(connPool *pgxpool.Pool, filePath string, cid string) erro
 }
 
 // setFileStatusError sets the status of a file to error with the error message
-func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage string) error {
+func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage string) {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
 		"UPDATE file_status SET status = $1, error = $2, updated_at = $3 WHERE file_path = $4;",
@@ -99,5 +100,7 @@ func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage st
 		time.Now().UTC(),
 		filePath,
 	)
-	return err
+	if err != nil {
+		log.Println("error setting file status to error:", err)
+	}
 }

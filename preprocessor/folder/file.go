@@ -89,10 +89,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	}
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
-		e := setFileStatusError(pgPool, filePath, err.Error())
-		if e != nil {
-			fmt.Println("error setting file status to error:", e)
-		}
+		setFileStatusError(pgPool, filePath, err.Error())
 		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
 	}
 	err = setFileStatusUploading(pgPool, filePath, metadata["sha256"].(string))
@@ -101,10 +98,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	}
 	resp, err := webhook.PostFileToWebHook(filePath, metadata, webhook.PostGenericWebhookOpt{})
 	if err != nil {
-		e := setFileStatusError(pgPool, filePath, err.Error())
-		if e != nil {
-			fmt.Println("error setting file status to error:", e)
-		}
+		setFileStatusError(pgPool, filePath, err.Error())
 		return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
 	}
 	err = setFileStatusDone(pgPool, filePath, cid)
