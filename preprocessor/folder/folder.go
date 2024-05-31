@@ -1,7 +1,7 @@
 package folder
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -23,7 +23,7 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 		}
 		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
-			fmt.Println("Found: " + path)
+			log.Println("Found: " + path)
 			return nil
 		}
 		return nil
@@ -40,9 +40,9 @@ func Run(args []string) error {
 	for _, filePath := range fileList {
 		cid, err := handleNewFile(filePath)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		} else {
-			fmt.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+			log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
 		}
 	}
 
@@ -70,15 +70,15 @@ func Run(args []string) error {
 					defer file.Close()
 					fileInfo, err := file.Stat()
 					if err != nil {
-						fmt.Println("error getting file info:", err)
+						log.Println("error getting file info:", err)
 						continue
 					}
 					if shouldIncludeFile(fileInfo.Name()) {
 						cid, err := handleNewFile(filePath)
 						if err != nil {
-							fmt.Println(err)
+							log.Println(err)
 						} else {
-							fmt.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+							log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
 						}
 					}
 				}
@@ -86,7 +86,7 @@ func Run(args []string) error {
 				if !ok {
 					return
 				}
-				fmt.Println("error:", err)
+				log.Println("error:", err)
 			}
 		}
 	}()
