@@ -1,8 +1,7 @@
-package preprocessor_folder
+package folder
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -22,7 +21,7 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if checkShouldIncludeFile(info) {
+		if shouldIncludeFile(info) {
 			fileList = append(fileList, path)
 			fmt.Println("Found: " + path)
 			return nil
@@ -74,7 +73,7 @@ func Run(args []string) error {
 						fmt.Println("error getting file info:", err)
 						continue
 					}
-					if checkShouldIncludeFile(fileInfo) {
+					if shouldIncludeFile(fileInfo) {
 						cid, err := handleNewFile(filePath)
 						if err != nil {
 							fmt.Println(err)

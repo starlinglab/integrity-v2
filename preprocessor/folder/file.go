@@ -1,4 +1,4 @@
-package preprocessor_folder
+package folder
 
 import (
 	"crypto/md5"
@@ -60,7 +60,8 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 	}, nil
 }
 
-// handleNewFile posts a new file and its metadata to the webhook server
+// handleNewFile posts a new file and its metadata to the webhook server,
+// and returns the CID of the file according to the server.
 func handleNewFile(filePath string) (string, error) {
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
@@ -73,17 +74,15 @@ func handleNewFile(filePath string) (string, error) {
 	return resp.Cid, nil
 }
 
-// checkShouldIncludeFile reports whether the file should be included in the processing
-func checkShouldIncludeFile(info fs.FileInfo) bool {
+// shouldIncludeFile reports whether the file should be included in the processing
+func shouldIncludeFile(info fs.FileInfo) bool {
 	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
-	var ignoreFileNamePrefix byte = '.'
-	ignoreFileSuffix := ".partial"
 	fileName := info.Name()
-	if fileName[0] == ignoreFileNamePrefix {
+	if fileName[0] == '.' {
 		return false
 	}
 	fileExt := filepath.Ext(fileName)
-	if fileExt == ignoreFileSuffix {
+	if fileExt == ".partial" {
 		return false
 	}
 	if slices.Contains(whiteListExtension, fileExt) {
