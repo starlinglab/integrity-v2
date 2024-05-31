@@ -36,7 +36,10 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 	mediaType := http.DetectContentType(buffer[:n])
-	file.Seek(0, 0)
+	_, err = file.Seek(0, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	sha := sha256.New()
 	md := md5.New()
