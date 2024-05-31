@@ -17,11 +17,11 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 	}
 	scanPath := filepath.Join(scanRoot, subPath)
 	fileList := []string{}
-	err := filepath.Walk(scanPath, func(path string, info fs.FileInfo, err error) error {
+	err := filepath.WalkDir(scanPath, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if shouldIncludeFile(info) {
+		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
 			fmt.Println("Found: " + path)
 			return nil
@@ -73,7 +73,7 @@ func Run(args []string) error {
 						fmt.Println("error getting file info:", err)
 						continue
 					}
-					if shouldIncludeFile(fileInfo) {
+					if shouldIncludeFile(fileInfo.Name()) {
 						cid, err := handleNewFile(filePath)
 						if err != nil {
 							fmt.Println(err)

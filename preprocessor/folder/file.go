@@ -2,7 +2,6 @@ package folder
 
 import (
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,9 +58,8 @@ func handleNewFile(filePath string) (string, error) {
 }
 
 // shouldIncludeFile reports whether the file should be included in the processing
-func shouldIncludeFile(info fs.FileInfo) bool {
+func shouldIncludeFile(fileName string) bool {
 	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
-	fileName := info.Name()
 	if fileName[0] == '.' {
 		return false
 	}
