@@ -1,11 +1,7 @@
 package folder
 
 import (
-	"crypto/md5"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -15,7 +11,6 @@ import (
 
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/webhook"
-	"lukechampine.com/blake3"
 )
 
 // getFileMetadata calculates and returns a map of attributes for a file
@@ -41,22 +36,8 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 
-	sha := sha256.New()
-	md := md5.New()
-	blake := blake3.New(32, nil)
-
-	writers := io.MultiWriter(sha, md, blake)
-	_, err = io.Copy(writers, file)
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]any{
-		"sha256":        hex.EncodeToString(sha.Sum(nil)),
-		"md5":           hex.EncodeToString(md.Sum(nil)),
-		"blake3":        hex.EncodeToString(blake.Sum(nil)),
 		"media_type":    mediaType,
-		"file_size":     fileInfo.Size(),
 		"file_name":     fileInfo.Name(),
 		"last_modified": fileInfo.ModTime().UTC().Format(time.RFC3339),
 		"time_created":  fileInfo.ModTime().UTC().Format(time.RFC3339),
