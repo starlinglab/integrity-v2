@@ -58,8 +58,8 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		"media_type":    mediaType,
 		"file_size":     fileInfo.Size(),
 		"file_name":     fileInfo.Name(),
-		"last_modified": fileInfo.ModTime().Format(time.RFC3339),
-		"time_created":  fileInfo.ModTime().Format(time.RFC3339),
+		"last_modified": fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"time_created":  fileInfo.ModTime().UTC().Format(time.RFC3339),
 	}, nil
 }
 
