@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/rjeczalik/notify"
 	"github.com/starlinglab/integrity-v2/config"
 )
 
@@ -47,57 +47,38 @@ func Run(args []string) error {
 	}
 
 	// Init directory watcher
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
-					filePath := event.Name
-					file, err := os.Open(filePath)
-					if err != nil {
-						// File may be moved away for fsnotify.Rename
-						continue
-					}
-					defer file.Close()
-					fileInfo, err := file.Stat()
-					if err != nil {
-						log.Println("error getting file info:", err)
-						continue
-					}
-					if shouldIncludeFile(fileInfo.Name()) {
-						cid, err := handleNewFile(filePath)
-						if err != nil {
-							log.Println(err)
-						} else {
-							log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
-						}
-					}
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
-			}
-		}
-	}()
-
+	c := make(chan notify.EventInfo, 1)
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-	err = watcher.Add(scanRoot)
+	err = notify.Watch(scanRoot+"/...", c, notify.Create, notify.Rename)
 	if err != nil {
 		return err
 	}
+	defer notify.Stop(c)
 
-	// Block main goroutine forever.
-	<-make(chan struct{})
-	return nil
+	for {
+		ei := <-c
+		event := ei.Event()
+		if event == notify.Rename || event == notify.Create {
+			filePath := ei.Path()
+			file, err := os.Open(filePath)
+			if err != nil {
+				// File may be moved away for notify.Rename
+				continue
+			}
+			fileInfo, err := file.Stat()
+			if err != nil {
+				log.Println("error getting file info:", err)
+				continue
+			}
+			if shouldIncludeFile(fileInfo.Name()) {
+				cid, err := handleNewFile(filePath)
+				if err != nil {
+					log.Println(err)
+				} else {
+					log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+				}
+			}
+			file.Close()
+		}
+	}
 }
