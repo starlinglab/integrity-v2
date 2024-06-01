@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,6 +58,29 @@ type WaczFileData struct {
 	MetadataBytes     []byte
 	MetadataSignature []byte
 	PubKey            []byte
+}
+
+func verifyWaczFileHashes(packageData *waczPackageData, fileMap map[string]*zip.File) error {
+	for _, resource := range packageData.Resources {
+		file, ok := fileMap[resource.Path]
+		if !ok {
+			return fmt.Errorf("missing file %s", resource.Path)
+		}
+		fileReader, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer fileReader.Close()
+		h := sha256.New()
+		_, err = io.Copy(h, fileReader)
+		if err != nil {
+			return err
+		}
+		if resource.Hash != "sha256:"+hex.EncodeToString(h.Sum(nil)) {
+			return fmt.Errorf("hash mismatch for %s", resource.Path)
+		}
+	}
+	return nil
 }
 
 func verifyWaczSignature(message string, signatureBytes []byte, pubKeyBytes []byte) (bool, error) {
@@ -118,8 +142,10 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		return nil, err
 	}
 	defer zipListing.Close()
+
 	dataPackageBytes := []byte{}
 	dataPackageDigestBytes := []byte{}
+	fileMap := map[string]*zip.File{}
 	for _, file := range zipListing.File {
 		if file.Name == "datapackage.json" {
 			fileReader, err := file.Open()
@@ -141,6 +167,8 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			fileMap[file.Name] = file
 		}
 	}
 	if len(dataPackageBytes) == 0 || len(dataPackageDigestBytes) == 0 {
@@ -154,6 +182,18 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 	}
 	var packageData waczPackageData
 	err = json.Unmarshal(dataPackageBytes, &packageData)
+	if err != nil {
+		return nil, err
+	}
+
+	// verify hash of data package
+	h := sha256.New()
+	h.Write(dataPackageBytes)
+	if digestData.Hash != "sha256:"+hex.EncodeToString(h.Sum(nil)) {
+		return nil, fmt.Errorf("hash mismatch")
+	}
+
+	err = verifyWaczFileHashes(&packageData, fileMap)
 	if err != nil {
 		return nil, err
 	}
