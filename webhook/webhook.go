@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/starlinglab/integrity-v2/aa"
@@ -73,7 +74,6 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	metadataString := []byte{}
 
 	outputDirectory, err := getFileOutputDirectory()
 	if err != nil {
@@ -89,6 +89,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 	defer os.Remove(tempFile.Name())
 	cid := ""
 	fileAttributes := map[string]any{}
+	var metadataMap map[string]any
 	for {
 		part, err := form.NextPart()
 		if err == io.EOF {
@@ -98,13 +99,24 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if part.FormName() == "metadata" {
-			metadataString, err = io.ReadAll(part)
+			metadataFormatType := part.Header.Get("Content-Type")
+			metadataValue, err := io.ReadAll(part)
 			defer part.Close()
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
-			//do something with files
+			switch metadataFormatType {
+			case "application/cbor":
+				err = cbor.Unmarshal(metadataValue, &metadataMap)
+			case "application/json":
+				err = json.Unmarshal(metadataValue, &metadataMap)
+			}
+			if err != nil {
+				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+
 		} else if part.FormName() == "file" {
 			pr, pw := io.Pipe()
 			cidChan := make(chan string, 1)
@@ -161,13 +173,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var jsonMap map[string]any
-	err = json.Unmarshal(metadataString, &jsonMap)
-	if err != nil {
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	attributes := ParseJsonToAttributes(jsonMap, fileAttributes)
+	attributes := ParseMapToAttributes(metadataMap, fileAttributes)
 	err = aa.SetAttestations(cid, false, attributes)
 	if err != nil {
 		fmt.Println("Error setting attestations:", err)
