@@ -60,6 +60,28 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	return metadatas, nil
 }
 
+func getWaczFileMetadata(filePath string) (map[string]any, error) {
+	mediaType := "application/wacz"
+	metadata, err := util.ReadAndVerifyWaczMetadata(filePath)
+	if err != nil {
+		return nil, err
+	}
+	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+	waczMetadata := map[string]any{
+		"last_modified":   metadata.Modified,
+		"time_created":    metadata.Created,
+		"asset_origin":    strings.TrimPrefix(filePath, syncRoot),
+		"asset_signature": hex.EncodeToString(metadata.MetadataSignature),
+		"media_type":      mediaType,
+		"wacz": map[string]([]byte){
+			"metadata": metadata.MetadataBytes,
+			"meta_sig": metadata.MetadataSignature,
+			"pubkey":   metadata.PubKey,
+		},
+	}
+	return waczMetadata, nil
+}
+
 // getFileMetadata calculates and returns a map of attributes for a file
 func getFileMetadata(filePath string, mediaType string) (map[string]any, error) {
 	file, err := os.Open(filePath)
@@ -104,6 +126,10 @@ func checkFileType(filePath string) (string, string, error) {
 		isProofMode := proofmode.CheckIsProofModeFile(filePath)
 		if isProofMode {
 			fileType = "proofmode"
+		}
+		isWacz := util.CheckIsWaczFile(filePath)
+		if isWacz {
+			fileType = "wacz"
 		}
 	}
 	return fileType, mediaType, nil
@@ -166,6 +192,29 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			}
 			return "", fmt.Errorf("error getting proofmode file metadatas: %v", err)
 		}
+	case "wacz":
+		fileMetadata, err := getFileMetadata(filePath, mediaType)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting file metadata: %v", err)
+		}
+		waczMetadata, err := getWaczFileMetadata(filePath)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting wacz file metadatas: %v", err)
+		}
+		metadata := map[string]any{}
+		for k, v := range fileMetadata {
+			metadata[k] = v
+		}
+		for k, v := range waczMetadata {
+			metadata[k] = v
+		}
+		metadatas = append(metadatas, metadata)
 	case "generic":
 		metadata, err := getFileMetadata(filePath, mediaType)
 		if err != nil {
@@ -243,6 +292,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 				return "", fmt.Errorf("file %s not found in zip", fileName)
 			}
 		}
+	case "wacz":
 	case "generic":
 		file, err := os.Open(filePath)
 		if err != nil {
