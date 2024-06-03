@@ -8,7 +8,9 @@ import (
 	"github.com/starlinglab/integrity-v2/attr"
 	"github.com/starlinglab/integrity-v2/dummy"
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
+	"github.com/starlinglab/integrity-v2/getcid"
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
+	"github.com/starlinglab/integrity-v2/register"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
@@ -33,6 +35,10 @@ func run(cmd string, args []string) (bool, error) {
 		err = webhook.Run(args)
 	case "upload":
 		err = upload.Run(args)
+	case "register":
+		err = register.Run(args)
+	case "getcid":
+		err = getcid.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	default:
