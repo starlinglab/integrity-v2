@@ -41,7 +41,7 @@ func Run(args []string) error {
 		return fmt.Errorf("provide CID with --cid")
 	}
 	if chain == "" {
-		return fmt.Errorf("provide chain/network with --on")
+		return fmt.Errorf("provide chain/network with --on: numbers,avalanche,near")
 	}
 
 	// Currently only one registration API is supported: Numbers Protocol
@@ -125,6 +125,7 @@ func Run(args []string) error {
 		return err
 	}
 	req.Header.Add("Authorization", "token "+conf.Numbers.Token)
+	fmt.Println("Registering...")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error with register API call: %w", err)
@@ -141,8 +142,7 @@ func Run(args []string) error {
 	}
 
 	if testnet {
-		fmt.Println(string(body))
-		fmt.Println("\nTestnet registration not logged in AuthAttr")
+		fmt.Printf("\n%s\n\nTestnet registration not logged in AuthAttr\n", body)
 		return nil
 	}
 
@@ -161,6 +161,7 @@ func Run(args []string) error {
 		return fmt.Errorf("error logging registration to AuthAttr: %w", err)
 	}
 
+	fmt.Println("Success.")
 	return nil
 }
 
