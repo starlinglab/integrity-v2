@@ -1,6 +1,7 @@
 package folder
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,7 +14,7 @@ import (
 func scanSyncDirectory(subPath string) ([]string, error) {
 	scanRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	if scanRoot == "" {
-		scanRoot = "."
+		return nil, fmt.Errorf("sync folder root not set")
 	}
 	scanPath := filepath.Join(scanRoot, subPath)
 	fileList := []string{}
@@ -23,7 +24,7 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 		}
 		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
-			log.Println("Found: " + path)
+			log.Println("found: " + path)
 			return nil
 		}
 		return nil
@@ -42,7 +43,7 @@ func Run(args []string) error {
 		if err != nil {
 			log.Println(err)
 		} else {
-			log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+			log.Printf("file %s uploaded to webhook with CID %s\n", filePath, cid)
 		}
 	}
 
