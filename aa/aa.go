@@ -216,7 +216,7 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func AppendAttestation(cid, attr string, val any) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func AddRelationship(cid, relType, verb, relCid string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}

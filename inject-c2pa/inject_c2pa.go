@@ -5,9 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"math/rand/v2"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,18 +72,10 @@ func Run(args []string) error {
 	// https://github.com/contentauth/c2patool/issues/150
 
 	cidPath := filepath.Join(conf.Dirs.Files, cid)
-	f, err := os.Open(cidPath)
+	mediaType, err := util.GuessMediaType(cidPath)
 	if err != nil {
-		return fmt.Errorf("error opening CID file: %w", err)
+		return err
 	}
-	defer f.Close()
-	header := make([]byte, 512)
-	_, err = io.ReadFull(f, header)
-	if err != nil {
-		return fmt.Errorf("error reading CID file: %w", err)
-	}
-	mediaType := http.DetectContentType(header)
-	f.Close()
 
 	var extension string
 	// https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats
@@ -173,7 +163,7 @@ func Run(args []string) error {
 	os.Remove(cidSymlink)
 
 	// Calc CID and final path, move later
-	f, err = os.Open(tmpOut)
+	f, err := os.Open(tmpOut)
 	if err != nil {
 		return fmt.Errorf("error opening temp file: %w", err)
 	}

@@ -33,6 +33,10 @@ type Config struct {
 		PrivateKey string `toml:"private_key"`
 		SignCert   string `toml:"sign_cert"`
 	} `toml:"c2pa"`
+	Numbers struct {
+		Token              string `toml:"token"`
+		NftContractAddress string `toml:"nft_contract_address"`
+	} `toml:"numbers"`
 }
 
 var conf *Config
