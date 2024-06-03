@@ -60,26 +60,28 @@ func Run(args []string) error {
 		ei := <-c
 		event := ei.Event()
 		if event == notify.Rename || event == notify.Create {
-			filePath := ei.Path()
-			file, err := os.Open(filePath)
-			if err != nil {
-				// File may be moved away for notify.Rename
-				continue
-			}
-			fileInfo, err := file.Stat()
-			if err != nil {
-				log.Println("error getting file info:", err)
-				continue
-			}
-			if shouldIncludeFile(fileInfo.Name()) {
-				cid, err := handleNewFile(filePath)
+			go func() {
+				filePath := ei.Path()
+				file, err := os.Open(filePath)
 				if err != nil {
-					log.Println(err)
-				} else {
-					log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+					// File may be moved away for notify.Rename
+					return
 				}
-			}
-			file.Close()
+				fileInfo, err := file.Stat()
+				if err != nil {
+					log.Println("error getting file info:", err)
+					return
+				}
+				if shouldIncludeFile(fileInfo.Name()) {
+					cid, err := handleNewFile(filePath)
+					if err != nil {
+						log.Println(err)
+					} else {
+						log.Printf("file %s uploaded to webhook with CID %s\n", filePath, cid)
+					}
+				}
+				file.Close()
+			}()
 		}
 	}
 }
