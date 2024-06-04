@@ -30,9 +30,9 @@ func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
 
 // FileQueryResult represents the result of a file query
 type FileQueryResult struct {
-	Status       *string
-	Cid          *string
-	ErrorMessage *string
+	Status       string
+	Cid          string
+	ErrorMessage string
 }
 
 func queryAndSetFoundFileStatus(connPool *pgxpool.Pool, filePath string) (*FileQueryResult, error) {

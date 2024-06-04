@@ -4,10 +4,9 @@ package folder
 var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 		id BIGSERIAL PRIMARY KEY,
 		file_path TEXT UNIQUE NOT NULL,
-		sha256 TEXT,
-		status TEXT NOT NULL,
-		error TEXT,
-		cid TEXT,
+		status TEXT NOT NULL DEFAULT '',
+		error TEXT NOT NULL DEFAULT '',
+		cid TEXT NOT NULL DEFAULT '',
 		created_at TIMESTAMP NOT NULL,
 		updated_at TIMESTAMP NOT NULL
 	);

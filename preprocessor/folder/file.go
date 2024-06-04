@@ -62,15 +62,9 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	}
 	status, errorMessage, cid := "", "", ""
 	if result != nil {
-		if result.Status != nil {
-			status = *result.Status
-		}
-		if result.ErrorMessage != nil {
-			errorMessage = *result.ErrorMessage
-		}
-		if result.Cid != nil {
-			cid = *result.Cid
-		}
+		status = result.Status
+		errorMessage = result.ErrorMessage
+		cid = result.Cid
 	}
 	switch status {
 	case FileStatusUploading:
