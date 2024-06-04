@@ -5,9 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"math/rand/v2"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
@@ -75,18 +72,10 @@ func Run(args []string) error {
 	// https://github.com/contentauth/c2patool/issues/150
 
 	cidPath := filepath.Join(conf.Dirs.Files, cid)
-	f, err := os.Open(cidPath)
+	mediaType, err := util.GuessMediaType(cidPath)
 	if err != nil {
-		return fmt.Errorf("error opening CID file: %w", err)
+		return err
 	}
-	defer f.Close()
-	header := make([]byte, 512)
-	_, err = io.ReadFull(f, header)
-	if err != nil {
-		return fmt.Errorf("error reading CID file: %w", err)
-	}
-	mediaType := http.DetectContentType(header)
-	f.Close()
 
 	var extension string
 	// https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats
@@ -174,12 +163,12 @@ func Run(args []string) error {
 	os.Remove(cidSymlink)
 
 	// Calc CID and final path, move later
-	f, err = os.Open(tmpOut)
+	f, err := os.Open(tmpOut)
 	if err != nil {
 		return fmt.Errorf("error opening temp file: %w", err)
 	}
 	defer f.Close()
-	c2paCid, err := util.GetCID(f)
+	c2paCid, err := util.CalculateFileCid(f)
 	if err != nil {
 		return fmt.Errorf("error getting output file CID: %w", err)
 	}
@@ -188,45 +177,17 @@ func Run(args []string) error {
 	// Set AA data:
 	// Update c2pa_exports and add relationship to exported file
 
-	c2paExports := make([]c2paExport, 0)
-	att, err := aa.GetAttestation(cid, "c2pa_exports", aa.GetAttOpts{})
-	if err == nil {
-		// Parse into c2paExport structs
-		slice, ok := att.Attestation.Value.([]any)
-		if !ok {
-			return fmt.Errorf("schema error: c2pa_exports is not the correct type")
-		}
-		for _, v := range slice {
-			m, ok := v.(map[string]any)
-			if !ok {
-				return fmt.Errorf("schema error: c2pa_exports is not the correct type")
-			}
-			var ce c2paExport
-			err := mapstructure.Decode(m, &ce)
-			if err != nil {
-				return fmt.Errorf("schema error: c2pa_exports is not the correct type: %w", err)
-			}
-			c2paExports = append(c2paExports, ce)
-		}
-	} else if !errors.Is(err, aa.ErrNotFound) {
-		// Some unknown error
-		return fmt.Errorf("error getting c2pa_exports attestation: %w", err)
-	}
-
 	c2paCidCbor, err := aa.NewCborCID(c2paCid)
 	if err != nil {
 		return fmt.Errorf("error parsing CID of C2PA asset (%s): %w", c2paCid, err)
 	}
-
-	c2paExports = append(c2paExports, c2paExport{
+	err = aa.AppendAttestation(cid, "c2pa_exports", c2paExport{
 		Manifest:  manifestName,
 		CID:       c2paCidCbor,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
-
-	err = aa.SetAttestations(cid, false, []aa.PostKV{{Key: "c2pa_exports", Value: c2paExports}})
 	if err != nil {
-		return fmt.Errorf("error setting c2pa_exports attestation: %w", err)
+		return fmt.Errorf("error logging C2PA export to AA: %w", err)
 	}
 	err = aa.AddRelationship(cid, "children", "derived", c2paCid)
 	if err != nil {

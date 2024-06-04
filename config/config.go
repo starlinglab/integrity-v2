@@ -29,7 +29,6 @@ type Config struct {
 		FileExtensions []string `toml:"file_extensions"`
 	} `toml:"folder_preprocessor"`
 	Bins struct {
-		Ipfs     string `toml:"ipfs"`
 		Rclone   string `toml:"rclone"`
 		C2patool string `toml:"c2patool"`
 		W3       string `toml:"w3"`
@@ -38,6 +37,10 @@ type Config struct {
 		PrivateKey string `toml:"private_key"`
 		SignCert   string `toml:"sign_cert"`
 	} `toml:"c2pa"`
+	Numbers struct {
+		Token              string `toml:"token"`
+		NftContractAddress string `toml:"nft_contract_address"`
+	} `toml:"numbers"`
 }
 
 var conf *Config

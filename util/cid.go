@@ -16,6 +16,8 @@ import (
 	multicodec "github.com/multiformats/go-multicodec"
 )
 
+// CalculateFileCid gets the CIDv1 for the given data, the same as IPFS kubo would.
+// It does not load the whole file into memory.
 func CalculateFileCid(fileReader io.Reader) (string, error) {
 	ds := dsync.MutexWrap(datastore.NewNullDatastore())
 	bs := blockstore.NewBlockstore(ds)

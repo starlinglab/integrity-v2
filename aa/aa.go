@@ -216,7 +216,7 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -244,20 +244,17 @@ type singleSet[T bool | []byte] struct {
 //
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccidattr
 func AppendAttestation(cid, attr string, val any) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s", config.GetConfig().AA.Url, cid, attr))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s?append=1", config.GetConfig().AA.Url, cid, attr))
 	if err != nil {
 		return err
 	}
-	q := url.Query()
-	q.Add("append", "1")
-	url.RawQuery = q.Encode()
 
 	b, err := dagCborEncMode.Marshal(singleSet[bool]{val, false})
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -304,7 +301,7 @@ func AddRelationship(cid, relType, verb, relCid string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url.String(), bytes.NewBuffer(b))
+	req, err := http.NewRequest("POST", url.String(), bytes.NewReader(b))
 	if err != nil {
 		return err
 	}

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/util"
 )
 
 func Run(args []string) error {
@@ -78,29 +78,13 @@ CIDs are retrieved from the "files" and "c2pa" storage locations.`)
 }
 
 func getCidPaths(cids []string) ([]string, error) {
-	fileDir := config.GetConfig().Dirs.Files
-	c2paDir := config.GetConfig().Dirs.C2PA
-
 	cidPaths := make([]string, len(cids))
-
 	for i, cid := range cids {
-		path := filepath.Join(fileDir, cid)
-		_, err := os.Stat(path)
-		if errors.Is(err, os.ErrNotExist) {
-			path = filepath.Join(c2paDir, cid)
-			_, err = os.Stat(path)
-			if errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("file not found in files or c2pa dirs: %s", cid)
-			}
-			if err != nil {
-				return nil, err
-			}
-		}
+		var err error
+		cidPaths[i], err = util.CidPath(cid)
 		if err != nil {
 			return nil, err
 		}
-
-		cidPaths[i] = path
 	}
 	return cidPaths, nil
 }
