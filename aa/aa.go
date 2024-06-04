@@ -235,6 +235,35 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 	return nil
 }
 
+// GetCIDs returns a slice of all the CIDs stored in the database, as strings.
+func GetCIDs() ([]string, error) {
+	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/cids")
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad status code in response: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var v []string
+	if err := dagCborDecMode.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 type singleSet[T bool | []byte] struct {
 	Value  any `cbor:"value"`
 	EncKey T   `cbor:"encKey"`

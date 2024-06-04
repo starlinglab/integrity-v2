@@ -12,6 +12,7 @@ import (
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
 	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
 	"github.com/starlinglab/integrity-v2/register"
+	"github.com/starlinglab/integrity-v2/search"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
@@ -42,6 +43,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = register.Run(args)
 	case "getcid":
 		err = getcid.Run(args)
+	case "search":
+		err = search.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	default:

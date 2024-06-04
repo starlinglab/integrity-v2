@@ -11,7 +11,7 @@ import (
 )
 
 func Run(args []string) error {
-	if len(args) == 1 && args[0] == "--help" {
+	if (len(args) == 1 && args[0] == "--help") || len(args) == 0 {
 		fmt.Println(`upload takes two or more arguments.
 The first one is the storage provider and path, and the second one is the CID
 to upload. You can provide multiple CIDs as well.
