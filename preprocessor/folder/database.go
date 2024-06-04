@@ -1,6 +1,7 @@
 package folder
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -34,43 +35,54 @@ type FileQueryResult struct {
 	ErrorMessage *string
 }
 
-// queryIfFileExists checks if a file is already found in the database
-func queryIfFileExists(connPool *pgxpool.Pool, filePath string) (*FileQueryResult, error) {
-	var result FileQueryResult
+func queryAndSetFoundFileStatus(connPool *pgxpool.Pool, filePath string) (*FileQueryResult, error) {
+	var status string
 	err := connPool.QueryRow(
 		db.GetDatabaseContext(),
-		"SELECT status, cid, error FROM file_status WHERE file_path = $1;",
-		filePath,
-	).Scan(&result.Status, &result.Cid, &result.ErrorMessage)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &result, nil
-}
-
-// setFileStatusFound add a file to database with status found
-func setFileStatusFound(connPool *pgxpool.Pool, filePath string) error {
-	_, err := connPool.Exec(
-		db.GetDatabaseContext(),
-		"INSERT INTO file_status (file_path, status, created_at, updated_at) VALUES ($1, $2, $3, $4);",
+		`WITH new_file_status AS (
+			INSERT INTO file_status (file_path, status, created_at, updated_at) VALUES ($1, $2, $3, $4)
+			ON CONFLICT DO NOTHING
+			RETURNING *
+		) SELECT COALESCE(
+				(SELECT status FROM new_file_status),
+				(SELECT status FROM file_status WHERE file_path = $1)
+		);`,
 		filePath,
 		FileStatusFound,
 		time.Now().UTC(),
 		time.Now().UTC(),
-	)
-	return err
+	).Scan(&status)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("file status not found")
+		}
+		return nil, err
+	}
+	result := FileQueryResult{
+		Status: status,
+	}
+	if status != FileStatusFound {
+		err := connPool.QueryRow(
+			db.GetDatabaseContext(),
+			"SELECT status, cid, error FROM file_status WHERE file_path = $1;",
+			filePath,
+		).Scan(&result.Status, &result.Cid, &result.ErrorMessage)
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return nil, fmt.Errorf("file status not found")
+			}
+			return nil, err
+		}
+	}
+	return &result, nil
 }
 
 // setFileStatusUploading sets the status of a file to uploading
-func setFileStatusUploading(connPool *pgxpool.Pool, filePath string, sha256 string) error {
+func setFileStatusUploading(connPool *pgxpool.Pool, filePath string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
-		"UPDATE file_status SET status = $1, sha256 = $2, updated_at = $3 WHERE file_path = $4;",
+		"UPDATE file_status SET status = $1, updated_at = $2 WHERE file_path = $3;",
 		FileStatusUploading,
-		sha256,
 		time.Now().UTC(),
 		filePath,
 	)

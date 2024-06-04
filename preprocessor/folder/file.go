@@ -56,7 +56,7 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 // posts the new file and its metadata to the webhook server,
 // and returns the CID of the file according to the server.
 func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
-	result, err := queryIfFileExists(pgPool, filePath)
+	result, err := queryAndSetFoundFileStatus(pgPool, filePath)
 	if err != nil {
 		return "", fmt.Errorf("error checking if file exists in database: %v", err)
 	}
@@ -73,26 +73,22 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 		}
 	}
 	switch status {
-	case FileStatusFound:
-		return "", fmt.Errorf("file %s is already found", filePath)
 	case FileStatusUploading:
 		return "", fmt.Errorf("file %s is already uploading", filePath)
 	case FileStatusSuccess:
 		return cid, nil
 	case FileStatusError:
 		return "", fmt.Errorf("file %s has error: %s", filePath, errorMessage)
+	case FileStatusFound:
 	default:
-		err = setFileStatusFound(pgPool, filePath)
-		if err != nil {
-			return "", fmt.Errorf("error setting file status to found: %v", err)
-		}
+		// proceed to upload
 	}
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
 		setFileStatusError(pgPool, filePath, err.Error())
 		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
 	}
-	err = setFileStatusUploading(pgPool, filePath, metadata["sha256"].(string))
+	err = setFileStatusUploading(pgPool, filePath)
 	if err != nil {
 		return "", fmt.Errorf("error setting file status to uploading: %v", err)
 	}

@@ -12,6 +12,5 @@ var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 		updated_at TIMESTAMP NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_file_status_file_path ON file_status (file_path);
-	CREATE INDEX IF NOT EXISTS idx_file_status_sha256 ON file_status (sha256);
 	CREATE INDEX IF NOT EXISTS idx_file_status_status ON file_status (status);
 `
