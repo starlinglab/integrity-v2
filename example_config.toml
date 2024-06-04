@@ -18,6 +18,10 @@ c2pa_manifest_templates = "/path/to/c2pa-manifest-templates/storage/"
 metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
 file_enc_keys = "/path/to/file-encryption-key/storage/"
 
+[folder_preprocessor]
+sync_folder_root = "/path/to/sync/folder/"
+file_extensions = ['.jpg', '.png', '.jpeg']
+
 [bins]
 # All of these are optional.
 # The CLI tools you use will tell you if they are needed.

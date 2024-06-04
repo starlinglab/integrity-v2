@@ -10,6 +10,7 @@ import (
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
 	"github.com/starlinglab/integrity-v2/getcid"
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
+	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
 	"github.com/starlinglab/integrity-v2/register"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
@@ -35,6 +36,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = webhook.Run(args)
 	case "upload":
 		err = upload.Run(args)
+	case "preprocessor-folder":
+		err = preprocessorfolder.Run(args)
 	case "register":
 		err = register.Run(args)
 	case "getcid":
