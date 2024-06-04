@@ -42,11 +42,11 @@ func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
 
 // ProjectQueryResult represents the result of a project metadata query
 type ProjectQueryResult struct {
-	ProjectId        *string
-	ProjectPath      *string
-	AuthorType       *string
-	AuthorName       *string
-	AuthorIdentifier *string
+	ProjectId        string
+	ProjectPath      string
+	AuthorType       string
+	AuthorName       string
+	AuthorIdentifier string
 }
 
 // queryAllProjects queries all project metadata from the database

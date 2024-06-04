@@ -97,18 +97,18 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 	}
 
 	if project != nil {
-		metadata["project_id"] = *project.ProjectId
-		metadata["project_path"] = filepath.Clean(*project.ProjectPath)
-		if project.AuthorType != nil || project.AuthorName != nil || project.AuthorIdentifier != nil {
+		metadata["project_id"] = project.ProjectId
+		metadata["project_path"] = filepath.Clean(project.ProjectPath)
+		if project.AuthorType != "" || project.AuthorName != "" || project.AuthorIdentifier != "" {
 			author := map[string]string{}
-			if project.AuthorType != nil {
-				author["@type"] = *project.AuthorType
+			if project.AuthorType != "" {
+				author["@type"] = project.AuthorType
 			}
-			if project.AuthorName != nil {
-				author["name"] = *project.AuthorName
+			if project.AuthorName != "" {
+				author["name"] = project.AuthorName
 			}
-			if project.AuthorIdentifier != nil {
-				author["identifier"] = *project.AuthorIdentifier
+			if project.AuthorIdentifier != "" {
+				author["identifier"] = project.AuthorIdentifier
 			}
 			metadata["author"] = author
 		}
