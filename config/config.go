@@ -19,7 +19,6 @@ type Config struct {
 	} `toml:"webhook"`
 	Dirs struct {
 		Files             string `toml:"files"`
-		C2PA              string `toml:"c2pa"`
 		C2PAManifestTmpls string `toml:"c2pa_manifest_templates"`
 		EncKeys           string `toml:"enc_keys"`
 	} `toml:"dirs"`
