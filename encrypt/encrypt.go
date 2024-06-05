@@ -58,6 +58,12 @@ func Run(args []string) error {
 	}
 	defer inF.Close()
 
+	fi, err := inF.Stat()
+	if err != nil {
+		return fmt.Errorf("error statting CID file: %w", err)
+	}
+	inFileSize := fi.Size()
+
 	tmpF, err := os.CreateTemp("", "encrypt_")
 	if err != nil {
 		return fmt.Errorf("error creating temp file: %w", err)
@@ -77,14 +83,21 @@ func Run(args []string) error {
 	}
 
 	buf := make([]byte, 32768) // 32 KiB, same as io.Copy
+	var bytesRead int64
 	var n int
 	for {
 		n, err = inF.Read(buf)
 		if err == io.EOF {
-			break
+			return fmt.Errorf("assertion error: unexpected end of file")
 		}
 		if err != nil {
 			return fmt.Errorf("error reading CID file: %w", err)
+		}
+
+		bytesRead += int64(n)
+		if bytesRead == inFileSize {
+			// Whole file has been read, the next .Read would return (0, io.EOF)
+			break
 		}
 
 		cipher, err := enc.Push(buf[:n], secretstream.TagMessage)
@@ -96,10 +109,7 @@ func Run(args []string) error {
 			return fmt.Errorf("error writing to temp file: %w", err)
 		}
 	}
-	// EOF
-	// Due to the way (*os.File).Read works, n is always 0 in this case.
-	// But from my testing it's fine for the last message in the stream to be empty.
-	// So we do that.
+	// The last message in the stream, the last chunk of the file
 	cipher, err := enc.Push(buf[:n], secretstream.TagFinal)
 	if err != nil {
 		return fmt.Errorf("error encrypting data: %w", err)
@@ -111,7 +121,7 @@ func Run(args []string) error {
 	fmt.Println("Done. Moving on to cleanup...")
 
 	// Calc CID
-	_, err = tmpF.Seek(0, 0)
+	_, err = tmpF.Seek(0, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("error seeking in temp file: %w", err)
 	}

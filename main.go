@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/attr"
+	"github.com/starlinglab/integrity-v2/decrypt"
 	"github.com/starlinglab/integrity-v2/dummy"
 	"github.com/starlinglab/integrity-v2/encrypt"
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
@@ -51,6 +52,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = genkey.Run(args)
 	case "encrypt":
 		err = encrypt.Run(args)
+	case "decrypt":
+		err = decrypt.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	default:
