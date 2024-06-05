@@ -2,7 +2,6 @@ package folder
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -99,7 +98,7 @@ func setFileStatusDone(connPool *pgxpool.Pool, filePath string, cid string) erro
 }
 
 // setFileStatusError sets the status of a file to error with the error message
-func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage string) {
+func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage string) error {
 	_, err := connPool.Exec(
 		db.GetDatabaseContext(),
 		"UPDATE file_status SET status = $1, error = $2, updated_at = $3 WHERE file_path = $4;",
@@ -108,7 +107,5 @@ func setFileStatusError(connPool *pgxpool.Pool, filePath string, errorMessage st
 		time.Now().UTC(),
 		filePath,
 	)
-	if err != nil {
-		log.Println("error setting file status to error:", err)
-	}
+	return err
 }

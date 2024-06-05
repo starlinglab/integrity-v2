@@ -2,6 +2,7 @@ package folder
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -79,7 +80,9 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	}
 	metadata, err := getFileMetadata(filePath)
 	if err != nil {
-		setFileStatusError(pgPool, filePath, err.Error())
+		if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+			log.Println("error setting file status to error:", err)
+		}
 		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
 	}
 	err = setFileStatusUploading(pgPool, filePath)
@@ -88,7 +91,9 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string) (string, error) {
 	}
 	resp, err := webhook.PostFileToWebHook(filePath, metadata, webhook.PostGenericWebhookOpt{})
 	if err != nil {
-		setFileStatusError(pgPool, filePath, err.Error())
+		if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+			log.Println("error setting file status to error:", err)
+		}
 		return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
 	}
 	err = setFileStatusDone(pgPool, filePath, cid)
