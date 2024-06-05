@@ -16,16 +16,12 @@ func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
 		db.GetDatabaseContext(),
 		fileStatusTableSchema,
 	)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // initDbTableIfNotExists initializes the database tables if they do not exist
 func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
-	err := initFileStatusTableIfNotExists(connPool)
-	return err
+	return initFileStatusTableIfNotExists(connPool)
 }
 
 // FileQueryResult represents the result of a file query
