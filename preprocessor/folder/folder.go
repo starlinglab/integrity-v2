@@ -41,7 +41,6 @@ func scanSyncDirectory(subPath string) (fileList []string, err error) {
 		}
 		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
-			log.Println("found: " + path)
 			return nil
 		}
 		return nil
@@ -77,7 +76,7 @@ func Run(args []string) error {
 			cid, err := handleNewFile(pgPool, filePath, &project)
 			if err != nil {
 				log.Println(err)
-			} else {
+			} else if cid != "" {
 				log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
 			}
 		}
@@ -111,7 +110,7 @@ func Run(args []string) error {
 					cid, err := handleNewFile(pgPool, filePath, project)
 					if err != nil {
 						log.Println(err)
-					} else {
+					} else if cid != "" {
 						log.Printf("file %s uploaded to webhook with CID %s\n", filePath, cid)
 					}
 				}

@@ -21,7 +21,8 @@ var PROJECT_METADATA_TABLE = `CREATE TABLE IF NOT EXISTS project_metadata (
 	project_path TEXT UNIQUE NOT NULL,
 	author_type TEXT NOT NULL DEFAULT '',
 	author_name TEXT NOT NULL DEFAULT '',
-	author_identifier TEXT NOT NULL DEFAULT ''
+	author_identifier TEXT NOT NULL DEFAULT '',
+	file_extensions TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_project_metadata_project_id ON project_metadata (project_id);
 `

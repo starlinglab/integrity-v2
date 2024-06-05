@@ -2,6 +2,7 @@ package folder
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,6 +48,7 @@ type ProjectQueryResult struct {
 	AuthorType       string
 	AuthorName       string
 	AuthorIdentifier string
+	FileExtensions   []string
 }
 
 // queryAllProjects queries all project metadata from the database
@@ -54,7 +56,7 @@ func queryAllProjects(connPool *pgxpool.Pool) ([]ProjectQueryResult, error) {
 	var result []ProjectQueryResult
 	rows, err := connPool.Query(
 		db.GetDatabaseContext(),
-		"SELECT project_id, project_path, author_type, author_name, author_identifier FROM project_metadata;",
+		"SELECT project_id, project_path, author_type, author_name, author_identifier, file_extensions FROM project_metadata;",
 	)
 	if err != nil {
 		return nil, err
@@ -62,9 +64,13 @@ func queryAllProjects(connPool *pgxpool.Pool) ([]ProjectQueryResult, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var row ProjectQueryResult
-		err := rows.Scan(&row.ProjectId, &row.ProjectPath, &row.AuthorType, &row.AuthorName, &row.AuthorIdentifier)
+		var fileExtensionsString string
+		err := rows.Scan(&row.ProjectId, &row.ProjectPath, &row.AuthorType, &row.AuthorName, &row.AuthorIdentifier, &fileExtensionsString)
 		if err != nil {
 			return nil, err
+		}
+		if fileExtensionsString != "" {
+			row.FileExtensions = strings.Split(fileExtensionsString, ",")
 		}
 		result = append(result, row)
 	}

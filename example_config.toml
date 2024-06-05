@@ -18,7 +18,6 @@ enc_keys = "/path/to/metadata-encryption-key/storage/"
 
 [folder_preprocessor]
 sync_folder_root = "/path/to/sync/folder/"
-file_extensions = ['.jpg', '.png', '.jpeg']
 
 [folder_database]
 user = "user"

@@ -64,6 +64,13 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 // posts the new file and its metadata to the webhook server,
 // and returns the CID of the file according to the server.
 func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryResult) (string, error) {
+	if len(project.FileExtensions) > 0 {
+		fileExt := filepath.Ext(filePath)
+		if !slices.Contains(project.FileExtensions, fileExt) {
+			return "", nil
+		}
+	}
+	log.Println("found: " + filePath)
 	result, err := queryAndSetFoundFileStatus(pgPool, filePath)
 	if err != nil {
 		return "", fmt.Errorf("error checking if file exists in database: %v", err)
@@ -135,16 +142,9 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 
 // shouldIncludeFile reports whether the file should be included in the processing
 func shouldIncludeFile(fileName string) bool {
-	whiteListExtension := config.GetConfig().FolderPreprocessor.FileExtensions
 	if fileName[0] == '.' {
 		return false
 	}
 	fileExt := filepath.Ext(fileName)
-	if fileExt == ".partial" {
-		return false
-	}
-	if slices.Contains(whiteListExtension, fileExt) {
-		return true
-	}
-	return false
+	return fileExt == ".partial"
 }
