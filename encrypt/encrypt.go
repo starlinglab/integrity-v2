@@ -131,6 +131,10 @@ func Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("error adding encryption relationship to AuthAttr: %w", err)
 	}
+	err = aa.SetAttestations(encCid, false, []aa.PostKV{{Key: "encryption_type", Value: "secretstream"}})
+	if err != nil {
+		return fmt.Errorf("error adding encryption metadata to AuthAttr: %w", err)
+	}
 
 	fmt.Printf("Done.\nEncrypted file is stored at %s\n", outPath)
 	return nil
