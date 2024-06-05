@@ -7,7 +7,9 @@ import (
 
 	"github.com/starlinglab/integrity-v2/attr"
 	"github.com/starlinglab/integrity-v2/dummy"
+	"github.com/starlinglab/integrity-v2/encrypt"
 	exportproof "github.com/starlinglab/integrity-v2/export-proof"
+	"github.com/starlinglab/integrity-v2/genkey"
 	"github.com/starlinglab/integrity-v2/getcid"
 	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
 	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
@@ -45,6 +47,10 @@ func run(cmd string, args []string) (bool, error) {
 		err = getcid.Run(args)
 	case "search":
 		err = search.Run(args)
+	case "genkey":
+		err = genkey.Run(args)
+	case "encrypt":
+		err = encrypt.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	default:

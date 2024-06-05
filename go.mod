@@ -11,6 +11,7 @@ require (
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/multiformats/go-multicodec v0.9.0
+	github.com/openziti/secretstream v0.1.20
 	github.com/photon-storage/go-ipfs-car v0.0.0-20240530014616-17d95f03173f
 	lukechampine.com/blake3 v1.3.0
 )
