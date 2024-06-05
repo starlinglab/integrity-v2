@@ -35,7 +35,8 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 
 // Scan the sync directory and watch for file changes
 func Run(args []string) error {
-	pgPool, err := database.GetDatabaseConnectionPool()
+	dbConfig := config.GetConfig().FolderDatabase
+	pgPool, err := database.GetDatabaseConnectionPool(database.DatabaseConfig(dbConfig))
 	if err != nil {
 		return err
 	}
