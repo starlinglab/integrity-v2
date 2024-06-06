@@ -23,8 +23,7 @@ type Config struct {
 		EncKeys           string `toml:"enc_keys"`
 	} `toml:"dirs"`
 	FolderPreprocessor struct {
-		SyncFolderRoot string   `toml:"sync_folder_root"`
-		FileExtensions []string `toml:"file_extensions"`
+		SyncFolderRoot string `toml:"sync_folder_root"`
 	} `toml:"folder_preprocessor"`
 	FolderDatabase struct {
 		Host     string `toml:"host"`
