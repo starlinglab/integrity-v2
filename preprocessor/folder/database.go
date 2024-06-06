@@ -52,8 +52,8 @@ type ProjectQueryResult struct {
 }
 
 // queryAllProjects queries all project metadata from the database
-func queryAllProjects(connPool *pgxpool.Pool) ([]ProjectQueryResult, error) {
-	var result []ProjectQueryResult
+func queryAllProjects(connPool *pgxpool.Pool) ([]*ProjectQueryResult, error) {
+	var result []*ProjectQueryResult
 	rows, err := connPool.Query(
 		db.GetDatabaseContext(),
 		"SELECT project_id, project_path, author_type, author_name, author_identifier, file_extensions FROM project_metadata;",
@@ -72,7 +72,7 @@ func queryAllProjects(connPool *pgxpool.Pool) ([]ProjectQueryResult, error) {
 		if fileExtensionsString != "" {
 			row.FileExtensions = strings.Split(fileExtensionsString, ",")
 		}
-		result = append(result, row)
+		result = append(result, &row)
 	}
 	return result, nil
 }

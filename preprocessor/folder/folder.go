@@ -14,13 +14,13 @@ import (
 
 // findProjectWithFilePath finds the project
 // in which ProjectPath is the parent directory of the given file path
-func findProjectWithFilePath(filePath string, projects []ProjectQueryResult) *ProjectQueryResult {
+func findProjectWithFilePath(filePath string, projects []*ProjectQueryResult) *ProjectQueryResult {
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	for _, project := range projects {
 		projectPath := project.ProjectPath
 		projectPath = filepath.Join(syncRoot, projectPath)
 		if strings.HasPrefix(filePath, projectPath) {
-			return &project
+			return project
 		}
 	}
 	return nil
@@ -72,7 +72,7 @@ func Run(args []string) error {
 			log.Println(err)
 		}
 		for _, filePath := range fileList {
-			cid, err := handleNewFile(pgPool, filePath, &project)
+			cid, err := handleNewFile(pgPool, filePath, project)
 			if err != nil {
 				log.Println(err)
 			} else if cid != "" {
