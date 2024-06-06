@@ -146,5 +146,5 @@ func shouldIncludeFile(fileName string) bool {
 		return false
 	}
 	fileExt := filepath.Ext(fileName)
-	return fileExt == ".partial"
+	return fileExt != ".partial"
 }
