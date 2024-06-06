@@ -304,18 +304,20 @@ func AppendAttestation(cid, attr string, val any) error {
 }
 
 type relBody struct {
-	Type string  `cbor:"type"`
-	Verb string  `cbor:"verb"`
-	Cid  CborCID `cbor:"cid"`
+	Type         string  `cbor:"type"`
+	RelationType string  `cbor:"relation_type"`
+	Cid          CborCID `cbor:"cid"`
 }
 
 // AddRelationship adds a relationship to the database.
 //
 // relType must be either "children" or "parents".
 //
+// relationType is the adjective to use, like "related".
+//
 // See AA docs for details:
 // https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-relcid
-func AddRelationship(cid, relType, verb, relCid string) error {
+func AddRelationship(cid, relType, relationType, relCid string) error {
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/rel/%s", config.GetConfig().AA.Url, cid))
 	if err != nil {
 		return err
@@ -326,7 +328,7 @@ func AddRelationship(cid, relType, verb, relCid string) error {
 		return fmt.Errorf("failed to parse relCid (%s): %v", relCid, err)
 	}
 
-	b, err := dagCborEncMode.Marshal(relBody{Type: relType, Verb: verb, Cid: relCidCbor})
+	b, err := dagCborEncMode.Marshal(relBody{Type: relType, RelationType: relationType, Cid: relCidCbor})
 	if err != nil {
 		return err
 	}
