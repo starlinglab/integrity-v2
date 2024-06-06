@@ -26,6 +26,13 @@ type Config struct {
 		SyncFolderRoot string   `toml:"sync_folder_root"`
 		FileExtensions []string `toml:"file_extensions"`
 	} `toml:"folder_preprocessor"`
+	FolderDatabase struct {
+		Host     string `toml:"host"`
+		Port     string `toml:"port"`
+		User     string `toml:"user"`
+		Password string `toml:"password"`
+		Database string `toml:"database"`
+	} `toml:"folder_database"`
 	Bins struct {
 		Rclone   string `toml:"rclone"`
 		C2patool string `toml:"c2patool"`

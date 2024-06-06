@@ -20,6 +20,13 @@ enc_keys = "/path/to/metadata-encryption-key/storage/"
 sync_folder_root = "/path/to/sync/folder/"
 file_extensions = ['.jpg', '.png', '.jpeg']
 
+[folder_database]
+user = "user"
+password = "password"
+host = "postgres"
+port = "5432"
+database = "database"
+
 [bins]
 # All of these are optional.
 # The CLI tools you use will tell you if they are needed.
@@ -36,3 +43,4 @@ sign_cert = "/path/to/c2pa/cert.pem"
 # Numbers protocol
 token = "MY_AUTH_TOKEN"
 nft_contract_address = "0xabc" # Optional
+

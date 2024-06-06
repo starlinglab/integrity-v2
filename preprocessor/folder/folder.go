@@ -8,6 +8,7 @@ import (
 
 	"github.com/rjeczalik/notify"
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/database"
 )
 
 // scanSyncDirectory scans a path under the sync directory and returns a list of files
@@ -32,14 +33,26 @@ func scanSyncDirectory(subPath string) ([]string, error) {
 	return fileList, err
 }
 
+// Scan the sync directory and watch for file changes
 func Run(args []string) error {
+	dbConfig := config.GetConfig().FolderDatabase
+	pgPool, err := database.GetDatabaseConnectionPool(database.DatabaseConfig(dbConfig))
+	if err != nil {
+		return err
+	}
+	defer database.CloseDatabaseConnectionPool()
+	err = initDbTableIfNotExists(pgPool)
+	if err != nil {
+		return err
+	}
+
 	// Scan whole sync directory
 	fileList, err := scanSyncDirectory("")
 	if err != nil {
 		return err
 	}
 	for _, filePath := range fileList {
-		cid, err := handleNewFile(filePath)
+		cid, err := handleNewFile(pgPool, filePath)
 		if err != nil {
 			log.Println(err)
 		} else {
@@ -73,7 +86,7 @@ func Run(args []string) error {
 					return
 				}
 				if shouldIncludeFile(fileInfo.Name()) {
-					cid, err := handleNewFile(filePath)
+					cid, err := handleNewFile(pgPool, filePath)
 					if err != nil {
 						log.Println(err)
 					} else {
