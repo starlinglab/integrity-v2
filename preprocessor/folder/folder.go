@@ -16,7 +16,6 @@ import (
 // in which ProjectPath is the parent directory of the given file path
 func findProjectWithFilePath(filePath string, projects []ProjectQueryResult) *ProjectQueryResult {
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-	syncRoot = filepath.Clean(syncRoot)
 	for _, project := range projects {
 		projectPath := project.ProjectPath
 		projectPath = filepath.Join(syncRoot, projectPath)
@@ -34,7 +33,7 @@ func scanSyncDirectory(subPath string) (fileList []string, err error) {
 		return nil, fmt.Errorf("sync folder root not set")
 	}
 	scanPath := filepath.Join(scanRoot, subPath)
-	log.Println("Scanning: " + scanPath)
+	log.Println("scanning: " + scanPath)
 	err = filepath.WalkDir(scanPath, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -77,7 +76,7 @@ func Run(args []string) error {
 			if err != nil {
 				log.Println(err)
 			} else if cid != "" {
-				log.Printf("File %s uploaded to webhook with CID %s\n", filePath, cid)
+				log.Printf("file %s uploaded to webhook with CID %s\n", filePath, cid)
 			}
 		}
 	}

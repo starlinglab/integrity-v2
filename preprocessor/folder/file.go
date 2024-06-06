@@ -85,7 +85,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 
 	switch status {
 	case FileStatusUploading:
-		fmt.Println("retrying uploading file:", filePath)
+		log.Println("retrying uploading file:", filePath)
 	case FileStatusSuccess:
 		return cid, nil
 	case FileStatusError:
