@@ -39,7 +39,7 @@ func uploadWeb3(space string, cidPaths []string) error {
 			// use the same CIDs as us instead of generating them in their own different
 			// way (--cid-version=1 --chunker=size-1048576).
 
-			tmpF, err := os.CreateTemp("", "upload_")
+			tmpF, err := os.CreateTemp(util.TempDir(), "upload_")
 			if err != nil {
 				return fmt.Errorf("error creating temp CAR file: %w", err)
 			}

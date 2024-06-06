@@ -80,7 +80,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	tempFile, err := os.CreateTemp("", "integrity-v2-webhook-file")
+	tempFile, err := os.CreateTemp(util.TempDir(), "integrity-v2-webhook-file_")
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return

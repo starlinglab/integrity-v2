@@ -78,3 +78,15 @@ func GuessMediaType(path string) (string, error) {
 	}
 	return http.DetectContentType(header), nil
 }
+
+func TempDir() string {
+	t := os.Getenv("TMPDIR")
+	if t != "" {
+		return t
+	}
+	// This is the default because /tmp is mounted in RAM (tmpfs) in a lot of Linux distros,
+	// including Debian 13. We don't want to start using RAM/swap for processing big files.
+	// /var/tmp usually isn't cleared out after every reboot like /tmp which is too bad, but
+	// shouldn't be a big problem for us.
+	return "/var/tmp"
+}

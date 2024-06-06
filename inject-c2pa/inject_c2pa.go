@@ -106,12 +106,12 @@ func Run(args []string) error {
 	}
 
 	// Store output in temporary file (later renamed to its CID)
-	tmpOut := filepath.Join(os.TempDir(), "inject_c2pa-")
+	tmpOut := filepath.Join(util.TempDir(), "inject_c2pa-")
 	tmpOut += strconv.FormatUint(rand.Uint64(), 10) + "." + extension
 
 	// Add extension to input file (required by c2patool, see above)
 	// by creating a symbolic link in a temp dir
-	cidSymlink := filepath.Join(os.TempDir(), cid) + "." + extension
+	cidSymlink := filepath.Join(util.TempDir(), cid) + "." + extension
 	os.Remove(cidSymlink) // In case it was already created
 	err = os.Symlink(cidPath, cidSymlink)
 	if err != nil {

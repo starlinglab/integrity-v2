@@ -64,7 +64,7 @@ func Run(args []string) error {
 	}
 	inFileSize := fi.Size()
 
-	tmpF, err := os.CreateTemp("", "encrypt_")
+	tmpF, err := os.CreateTemp(util.TempDir(), "encrypt_")
 	if err != nil {
 		return fmt.Errorf("error creating temp file: %w", err)
 	}

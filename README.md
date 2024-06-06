@@ -18,7 +18,7 @@ Environment variables, for configuration outside of the config file:
 
 - `INTEGRITY_CONFIG_PATH`: path to config file if not at the default path
 - `JWT_SECRET`: set the JWT secret for web services like the webhook
-- `TMPDIR`: set the directory for temporary files, `/tmp` by default
+- `TMPDIR`: set the directory for temporary files, `/var/tmp` by default
 
 Further instructions on running the software will be added in the future.
 
