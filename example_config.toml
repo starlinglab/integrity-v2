@@ -13,10 +13,8 @@ jwt = ""                # shared JWT for webhook
 [dirs]
 # All paths should be absolute
 files = "/path/to/file/storage/"
-c2pa = "/path/to/c2pa-file/storage/"
 c2pa_manifest_templates = "/path/to/c2pa-manifest-templates/storage/"
-metadata_enc_keys = "/path/to/metadata-encryption-key/storage/"
-file_enc_keys = "/path/to/file-encryption-key/storage/"
+enc_keys = "/path/to/metadata-encryption-key/storage/"
 
 [folder_preprocessor]
 sync_folder_root = "/path/to/sync/folder/"

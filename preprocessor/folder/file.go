@@ -2,6 +2,7 @@ package folder
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -40,7 +41,7 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 	mediaType := http.DetectContentType(buffer[:n])
-	_, err = file.Seek(0, 0)
+	_, err = file.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}

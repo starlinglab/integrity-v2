@@ -2,15 +2,12 @@ package util
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	car "github.com/photon-storage/go-ipfs-car"
-	"github.com/starlinglab/integrity-v2/config"
 )
 
 // Fatal kills the program if the provided err is not nil, logging it as well.
@@ -66,31 +63,8 @@ func GetCAR(r io.Reader) (*car.CarV1, error) {
 	return b.Buildv1(context.Background(), r, car.ImportOpts.CIDv1())
 }
 
-// CidPath takes a CID and returns the absolute path on the filesystem for where
-// that CID is stored.
-func CidPath(cid string) (string, error) {
-	fileDir := config.GetConfig().Dirs.Files
-	c2paDir := config.GetConfig().Dirs.C2PA
-	path := filepath.Join(fileDir, cid)
-	_, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
-		path = filepath.Join(c2paDir, cid)
-		_, err = os.Stat(path)
-		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("file not found in files or c2pa dirs: %s", cid)
-		}
-		if err != nil {
-			return "", err
-		}
-	}
-	if err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
 // GuessMediaType guesses the media type of a file based on its contents.
-// The 'media_type' should be preferred over this method.
+// The 'media_type' attribute should be preferred over this method.
 func GuessMediaType(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {

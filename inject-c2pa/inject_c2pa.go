@@ -172,7 +172,7 @@ func Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("error getting output file CID: %w", err)
 	}
-	c2paFinalPath := filepath.Join(conf.Dirs.C2PA, c2paCid)
+	c2paFinalPath := filepath.Join(conf.Dirs.Files, c2paCid)
 
 	// Set AA data:
 	// Update c2pa_exports and add relationship to exported file

@@ -61,6 +61,7 @@ require (
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/multiformats/go-multicodec v0.9.0
+	github.com/openziti/secretstream v0.1.20
 	github.com/photon-storage/go-ipfs-car v0.0.0-20240530014616-17d95f03173f
 )
 

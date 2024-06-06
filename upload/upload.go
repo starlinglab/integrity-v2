@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/starlinglab/integrity-v2/config"
-	"github.com/starlinglab/integrity-v2/util"
 )
 
 func Run(args []string) error {
-	if len(args) == 1 && args[0] == "--help" {
+	if (len(args) == 1 && args[0] == "--help") || len(args) == 0 {
 		fmt.Println(`upload takes two or more arguments.
 The first one is the storage provider and path, and the second one is the CID
 to upload. You can provide multiple CIDs as well.
@@ -80,8 +80,9 @@ CIDs are retrieved from the "files" and "c2pa" storage locations.`)
 func getCidPaths(cids []string) ([]string, error) {
 	cidPaths := make([]string, len(cids))
 	for i, cid := range cids {
-		var err error
-		cidPaths[i], err = util.CidPath(cid)
+		cidPaths[i] = filepath.Join(config.GetConfig().Dirs.Files, cid)
+		// Confirm it actually exists
+		_, err := os.Stat(cidPaths[i])
 		if err != nil {
 			return nil, err
 		}

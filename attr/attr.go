@@ -12,11 +12,11 @@ import (
 )
 
 var (
-	cid        string
-	attr       string
-	strInput   string
-	jsonInput  string
-	encKeyName string
+	cid         string
+	attr        string
+	strInput    string
+	jsonInput   string
+	isEncrypted bool
 )
 
 func Run(args []string) error {
@@ -33,7 +33,7 @@ func Run(args []string) error {
 	fs.StringVar(&attr, "attr", "", "name of attribute to get/set")
 	fs.StringVar(&strInput, "str", "", "string to set as value")
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
-	fs.StringVar(&encKeyName, "key", "", "encryption key for getting/setting encrypted attribute")
+	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get/set is encrypted")
 
 	err := fs.Parse(args[1:])
 	if err != nil {
@@ -60,16 +60,18 @@ func Run(args []string) error {
 		if strInput == "" && jsonInput == "" {
 			return fmt.Errorf("one of --str or --json must be set")
 		}
-		if encKeyName != "" {
-			return fmt.Errorf("--key is not supported for set command")
+		if isEncrypted {
+			return fmt.Errorf("TODO support encrypted set")
 		}
 	}
 
 	// Load attribute encryption key
 	var encKey []byte
-	if encKeyName != "" {
+	if isEncrypted {
 		var err error
-		encKey, err = os.ReadFile(filepath.Join(config.GetConfig().Dirs.MetadataEncKeys, encKeyName))
+		encKey, err = os.ReadFile(
+			filepath.Join(config.GetConfig().Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr)),
+		)
 		if err != nil {
 			return fmt.Errorf("error reading key: %w", err)
 		}
@@ -80,7 +82,7 @@ func Run(args []string) error {
 		if err != nil {
 			return fmt.Errorf("error getting attestation: %w", err)
 		}
-		b, err := json.MarshalIndent(&ae.Attestation.Value, "", "  ")
+		b, err := json.MarshalIndent(ae.Attestation.Value, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error encoding value as JSON: %w", err)
 		}

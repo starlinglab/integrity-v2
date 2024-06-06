@@ -19,10 +19,8 @@ type Config struct {
 	} `toml:"webhook"`
 	Dirs struct {
 		Files             string `toml:"files"`
-		C2PA              string `toml:"c2pa"`
 		C2PAManifestTmpls string `toml:"c2pa_manifest_templates"`
-		MetadataEncKeys   string `toml:"metadata_enc_keys"`
-		FileEncKeys       string `toml:"file_enc_keys"`
+		EncKeys           string `toml:"enc_keys"`
 	} `toml:"dirs"`
 	FolderPreprocessor struct {
 		SyncFolderRoot string   `toml:"sync_folder_root"`
