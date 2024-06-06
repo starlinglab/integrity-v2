@@ -17,11 +17,10 @@ const (
 
 func Run(args []string) error {
 	if len(args) != 1 ||
-		(len(args) == 1 && args[0] != "aa-enc" && args[0] != "aa-sig" && args[0] != "file") {
+		(len(args) == 1 && args[0] != "aa-enc" && args[0] != "aa-sig") {
 		return fmt.Errorf(`Valid invocations:
 $ genkey aa-enc
-$ genkey aa-sig
-$ genkey file`)
+$ genkey aa-sig`)
 	}
 
 	conf := config.GetConfig()
@@ -30,6 +29,7 @@ $ genkey file`)
 		fmt.Println(`Currently not implemented. Instead run: openssl genpkey -algorithm ED25519`)
 		return nil
 	}
+	// "aa-enc"
 
 	fmt.Print("CID: ")
 	var cid string
@@ -39,20 +39,13 @@ $ genkey file`)
 	}
 
 	var attr string
-	if args[0] == "aa-enc" {
-		fmt.Print("Attribute: ")
-		_, err = fmt.Scan(&attr)
-		if err != nil {
-			return err
-		}
+	fmt.Print("Attribute: ")
+	_, err = fmt.Scan(&attr)
+	if err != nil {
+		return err
 	}
 
-	var path string
-	if args[0] == "aa-enc" {
-		path = filepath.Join(conf.Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr))
-	} else if args[0] == "file" {
-		path = filepath.Join(conf.Dirs.EncKeys, fmt.Sprintf("%s.key", cid))
-	}
+	path := filepath.Join(conf.Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr))
 
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {

@@ -2,7 +2,6 @@ package encrypt
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,28 +27,10 @@ func Run(args []string) error {
 		return fmt.Errorf("error finding CID file: %w", err)
 	}
 
-	keyPath := filepath.Join(conf.Dirs.EncKeys, cid+".key")
-	var key []byte
-	_, err = os.Stat(keyPath)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("Generating key as no existing one was found...")
-		key = make([]byte, 32)
-		_, err = rand.Read(key)
-		if err != nil {
-			return fmt.Errorf("error reading random data for key: %w", err)
-		}
-		err = os.WriteFile(keyPath, key, 0600)
-		if err != nil {
-			return fmt.Errorf("error saving new key: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("error inspecting key file: %w", err)
-	} else {
-		fmt.Printf("Using key found at %s\n", keyPath)
-		key, err = os.ReadFile(keyPath)
-		if err != nil {
-			return fmt.Errorf("error reading key file: %w", err)
-		}
+	key := make([]byte, 32)
+	_, err = rand.Read(key)
+	if err != nil {
+		return fmt.Errorf("error reading random data for key: %w", err)
 	}
 
 	inF, err := os.Open(cidPath)
@@ -130,13 +111,23 @@ func Run(args []string) error {
 		return fmt.Errorf("error calculating output CID: %w", err)
 	}
 
-	outPath := filepath.Join(conf.Dirs.Files, encCid)
+	// Write key and output file
 
+	keyPath := filepath.Join(conf.Dirs.EncKeys, encCid+".key")
+	err = os.WriteFile(keyPath, key, 0600)
+	if err != nil {
+		return fmt.Errorf("error saving key: %w", err)
+	}
+	fmt.Printf("Saved encryption key to %s\n", keyPath)
+
+	outPath := filepath.Join(conf.Dirs.Files, encCid)
 	err = util.MoveFile(tmpF.Name(), outPath)
 	if err != nil {
 		return fmt.Errorf("error moving file: %w", err)
 	}
+	fmt.Printf("Saved encrypted file to %s\n", outPath)
 
+	// Log to AA
 	err = aa.AddRelationship(cid, "children", "encrypted", encCid)
 	if err != nil {
 		return fmt.Errorf("error adding encryption relationship to AuthAttr: %w", err)
@@ -146,6 +137,6 @@ func Run(args []string) error {
 		return fmt.Errorf("error adding encryption metadata to AuthAttr: %w", err)
 	}
 
-	fmt.Printf("Done.\nEncrypted file is stored at %s\n", outPath)
+	fmt.Println("Done.")
 	return nil
 }
