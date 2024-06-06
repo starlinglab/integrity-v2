@@ -56,6 +56,8 @@ func run(cmd string, args []string) (bool, error) {
 		err = decrypt.Run(args)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
+	case "version", "--version":
+		fmt.Println(util.Version())
 	default:
 		// Unknown command
 		return false, nil

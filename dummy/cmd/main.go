@@ -11,5 +11,5 @@ import (
 // Should just need to contain this one function
 
 func main() {
-	util.Fatal(dummy.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], dummy.Run)
 }

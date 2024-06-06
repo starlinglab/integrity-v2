@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	util.Fatal(injectc2pa.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], injectc2pa.Run)
 }

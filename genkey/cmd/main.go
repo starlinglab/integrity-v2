@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	util.Fatal(genkey.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], genkey.Run)
 }

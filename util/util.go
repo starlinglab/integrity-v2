@@ -10,14 +10,6 @@ import (
 	car "github.com/photon-storage/go-ipfs-car"
 )
 
-// Fatal kills the program if the provided err is not nil, logging it as well.
-func Fatal(err error) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-}
-
 // MoveFile moves the provided file, even if source and dest are part of different file systems.
 //
 // It is not atomic. os.Rename should be used in favour of this function if it can be guaranteed

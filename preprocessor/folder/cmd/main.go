@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	util.Fatal(folder_preprocessor.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], folder_preprocessor.Run)
 }

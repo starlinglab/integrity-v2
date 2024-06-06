@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	util.Fatal(attr.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], attr.Run)
 }

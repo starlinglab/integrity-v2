@@ -8,5 +8,5 @@ import (
 )
 
 func main() {
-	util.Fatal(decrypt.Run(os.Args[1:]))
+	util.Runner(os.Args[1:], decrypt.Run)
 }
