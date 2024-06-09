@@ -173,7 +173,12 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	attributes := ParseMapToAttributes(metadataMap, fileAttributes)
+	attributes, err := ParseMapToAttributes(cid, metadataMap, fileAttributes)
+	if err != nil {
+		fmt.Println("Error parsing attributes:", err)
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
 	err = aa.SetAttestations(cid, false, attributes)
 	if err != nil {
 		fmt.Println("Error setting attestations:", err)
