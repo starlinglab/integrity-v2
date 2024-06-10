@@ -111,7 +111,8 @@ func init() {
 // a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
 // exist in the database.
 func GetAttestationRaw(cid, attr string, opts GetAttOpts) ([]byte, error) {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s", config.GetConfig().AA.Url, cid, attr))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s",
+		config.GetConfig().AA.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +172,7 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
 
 // GetAttestations returns all attestations for the provided CID from AA.
 func GetAttestations(cid string) (map[string]*AttEntry, error) {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, cid))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +203,7 @@ func GetAttestations(cid string) (map[string]*AttEntry, error) {
 }
 
 func SetAttestations(cid string, index bool, kvs []PostKV) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, cid))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return err
 	}
@@ -274,7 +275,8 @@ type singleSet[T bool | []byte] struct {
 //
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccidattr
 func AppendAttestation(cid, attr string, val any) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s?append=1", config.GetConfig().AA.Url, cid, attr))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/c/%s/%s?append=1",
+		config.GetConfig().AA.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
 	if err != nil {
 		return err
 	}
@@ -318,7 +320,7 @@ type relBody struct {
 // See AA docs for details:
 // https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-relcid
 func AddRelationship(cid, relType, relationType, relCid string) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/rel/%s", config.GetConfig().AA.Url, cid))
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/rel/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return err
 	}
