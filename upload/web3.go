@@ -62,7 +62,7 @@ func uploadWeb3(space string, cidPaths []string) error {
 			if err != nil {
 				return fmt.Errorf("error calculating CAR data: %w", err)
 			}
-			defer util.RemoveCarTmpDatastore()
+			defer util.RemoveCarTmpDatastore() //nolint:errcheck
 
 			// Make sure CID hasn't changed
 			if car.Root().String() != filepath.Base(cidPath) {
