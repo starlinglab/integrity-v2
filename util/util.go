@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	car "github.com/photon-storage/go-ipfs-car"
 )
@@ -48,11 +49,27 @@ func MoveFile(sourcePath, destPath string) error {
 // CIDv1 represented by the CAR file should exactly match the CIDv1 from CalculateFileCid
 // or IPFS kubo every time.
 //
-// This function loads the whole file into memory. Watch out!
-// https://github.com/starlinglab/integrity-v2/issues/17
-func GetCAR(r io.Reader) (*car.CarV1, error) {
-	b := car.NewBuilder()
+// Set useDisk to control whether this function holds the read bytes all in memory
+// or stores them on the disk temporarily.
+//
+// If useDisk is true, the caller should call RemoveCarTmpDatastore once they are done
+// with the returned *car.CarV1 struct. This will clear the datastore from the disk.
+func GetCAR(r io.Reader, useDisk bool) (*car.CarV1, error) {
+	var b *car.Builder
+	if useDisk {
+		var err error
+		b, err = car.NewBuilderDisk(filepath.Join(TempDir(), "car-datastore"))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		b = car.NewBuilder()
+	}
 	return b.Buildv1(context.Background(), r, car.ImportOpts.CIDv1())
+}
+
+func RemoveCarTmpDatastore() error {
+	return os.RemoveAll(filepath.Join(TempDir(), "car-datastore"))
 }
 
 // GuessMediaType guesses the media type of a file based on its contents.

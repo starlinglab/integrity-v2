@@ -221,3 +221,5 @@ require (
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/photon-storage/go-ipfs-car => github.com/starlinglab/go-ipfs-car v0.0.0-20240610181106-ba9c16cb219f

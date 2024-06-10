@@ -28,7 +28,7 @@ func uploadWeb3(space string, cidPaths []string) error {
 
 	// Warn for what util.GetCAR might do
 	fmt.Fprintln(os.Stderr,
-		"warning: the whole file may be loaded into memory to create a CAR file for upload")
+		"warning: the whole file will be loaded into memory by w3 for upload")
 
 	for i, cidPath := range cidPaths {
 		// Use anon func to allow for safe idiomatic usage of `defer`
@@ -52,10 +52,17 @@ func uploadWeb3(space string, cidPaths []string) error {
 			}
 			defer cidF.Close()
 
-			car, err := util.GetCAR(cidF)
+			fi, err := cidF.Stat()
+			if err != nil {
+				return fmt.Errorf("error getting CID file info: %w", err)
+			}
+
+			// Hold file in memory for CAR creation, unless it's larger than 1 GiB
+			car, err := util.GetCAR(cidF, fi.Size() > 1<<30)
 			if err != nil {
 				return fmt.Errorf("error calculating CAR data: %w", err)
 			}
+			defer util.RemoveCarTmpDatastore()
 
 			// Make sure CID hasn't changed
 			if car.Root().String() != filepath.Base(cidPath) {
