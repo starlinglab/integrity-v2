@@ -59,10 +59,10 @@ type AttEntry struct {
 // Attributes for uploading.
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccid
 type PostKV struct {
-	Key    string   `cbor:"key"`
-	Value  any      `cbor:"value"`
-	Type   string   `cbor:"type,omitempty"`
-	EncKey [32]byte `cbor:"encKey,omitempty"`
+	Key    string `cbor:"key"`
+	Value  any    `cbor:"value"`
+	Type   string `cbor:"type,omitempty"`
+	EncKey []byte `cbor:"encKey,omitempty"` // 32 bytes
 }
 
 var (
