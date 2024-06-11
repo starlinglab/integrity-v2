@@ -43,7 +43,7 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 			"file_name":              fileName,
 			"last_modified":          asset.Metadata.FileModified,
 			"time_created":           asset.Metadata.FileCreated,
-			"asset_origin":           assetOrigin,
+			"asset_origin_id":        assetOrigin,
 			"asset_origin_signature": string(asset.AssetSignature),
 			"asset_origin_type":      []string{"proofmode"},
 			"media_type":             asset.MediaType,
@@ -78,11 +78,11 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
 
 	return map[string]any{
-		"media_type":    mediaType,
-		"asset_origin":  assetOrigin,
-		"file_name":     fileInfo.Name(),
-		"last_modified": fileInfo.ModTime().UTC().Format(time.RFC3339),
-		"time_created":  fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"media_type":      mediaType,
+		"asset_origin_id": assetOrigin,
+		"file_name":       fileInfo.Name(),
+		"last_modified":   fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"time_created":    fileInfo.ModTime().UTC().Format(time.RFC3339),
 	}, nil
 }
 
