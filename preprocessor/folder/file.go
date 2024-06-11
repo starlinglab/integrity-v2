@@ -13,7 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
-	"github.com/starlinglab/integrity-v2/util"
+	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -27,7 +27,7 @@ var (
 
 // getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
 func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
-	assets, err := util.ReadAndVerifyProofModeMetadata(filePath)
+	assets, err := proofmode.ReadAndVerifyMetadata(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func checkFileType(filePath string) (string, string, error) {
 	}
 	mediaType := http.DetectContentType(buffer[:n])
 	if mediaType == "application/zip" {
-		isProofMode := util.CheckIsProofModeFile(filePath)
+		isProofMode := proofmode.CheckIsProofModeFile(filePath)
 		if isProofMode {
 			fileType = "proofmode"
 		}
@@ -208,7 +208,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			return "", fmt.Errorf("error opening zip file %s: %v", filePath, err)
 		}
 		defer zipListing.Close()
-		fileMap, _, err := util.GetProofModeZipFiles(zipListing)
+		fileMap, _, err := proofmode.GetMapOfZipFiles(zipListing)
 		if err != nil {
 			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
 				log.Println("error setting file status to error:", err)

@@ -44,7 +44,7 @@ type ProofModeFileData struct {
 
 // validateAndParseProofModeFileSignatures reads a file and verify
 // its asset and metadata hash and signature
-func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileName string, fileSha string, jsonMetadataBytes []byte) (
+func validateAndParseFileSignatures(fileMap map[string]*zip.File, fileName string, fileSha string, jsonMetadataBytes []byte) (
 	*ProofModeFileData,
 	error,
 ) {
@@ -191,7 +191,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 
 // parseProofModeBundleAssetInfo reads the files in the zip
 // and returns a map of files and the json metadata files
-func parseProofModeBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
+func parseBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
 	var jsonFilesBytes [][]byte
 	fileMap := map[string]*zip.File{}
 	for _, file := range zipReader.File {
@@ -232,9 +232,9 @@ func CheckIsProofModeFile(filePath string) bool {
 	return found
 }
 
-// GetProofModeZipFiles reads the files mapping and JSON metadata in the zip
-func GetProofModeZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
-	fileMap, jsonFilesBytes, err := parseProofModeBundleAssetInfo(zipListing)
+// GetMapOfZipFiles reads the files mapping and JSON metadata in the zip
+func GetMapOfZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
+	fileMap, jsonFilesBytes, err := parseBundleAssetInfo(zipListing)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -246,13 +246,13 @@ func GetProofModeZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][
 
 // ReadAndVerifyProofModeMetadata reads and verifies a proof mode file
 // and returns its metadata
-func ReadAndVerifyProofModeMetadata(filePath string) ([]*ProofModeFileData, error) {
+func ReadAndVerifyMetadata(filePath string) ([]*ProofModeFileData, error) {
 	zipListing, err := zip.OpenReader(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer zipListing.Close()
-	fileMap, jsonFilesBytes, err := GetProofModeZipFiles(zipListing)
+	fileMap, jsonFilesBytes, err := GetMapOfZipFiles(zipListing)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func ReadAndVerifyProofModeMetadata(filePath string) ([]*ProofModeFileData, erro
 			return nil, err
 		}
 		filename := filepath.Base(metadata.FilePath)
-		assetData, err := validateAndParseProofModeFileSignatures(fileMap, filename, metadata.Sha256, jsonFileBytes)
+		assetData, err := validateAndParseFileSignatures(fileMap, filename, metadata.Sha256, jsonFileBytes)
 		if err != nil {
 			return nil, err
 		}
