@@ -2,7 +2,6 @@ package folder
 
 import (
 	"archive/zip"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -41,12 +40,12 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 		assetOrigin := filepath.Join(strings.TrimPrefix(filePath, syncRoot), asset.Metadata.FilePath)
 
 		metadata := map[string]any{
-			"file_name":       fileName,
-			"last_modified":   asset.Metadata.FileModified,
-			"time_created":    asset.Metadata.FileCreated,
-			"asset_origin":    assetOrigin,
-			"asset_signature": hex.EncodeToString(asset.AssetSignature),
-			"media_type":      mediaType,
+			"file_name":              fileName,
+			"last_modified":          asset.Metadata.FileModified,
+			"time_created":           asset.Metadata.FileCreated,
+			"asset_origin":           assetOrigin,
+			"asset_origin_signature": string(asset.AssetSignature),
+			"media_type":             mediaType,
 			"proofmode": map[string]([]byte){
 				"metadata":  asset.MetadataBytes,
 				"meta_sig":  asset.MetadataSignature,
