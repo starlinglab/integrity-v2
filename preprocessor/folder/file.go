@@ -45,11 +45,12 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 			"time_created":           asset.Metadata.FileCreated,
 			"asset_origin":           assetOrigin,
 			"asset_origin_signature": string(asset.AssetSignature),
+			"asset_origin_type":      []string{"proofmode"},
 			"media_type":             asset.MediaType,
-			"proofmode": map[string]([]byte){
-				"metadata":  asset.MetadataBytes,
-				"meta_sig":  asset.MetadataSignature,
-				"media_sig": asset.AssetSignature,
+			"proofmode": map[string]any{
+				"metadata":  string(asset.MetadataBytes),
+				"meta_sig":  string(asset.MetadataSignature),
+				"media_sig": string(asset.AssetSignature),
 				"pubkey":    asset.PubKey,
 				"ots":       asset.Ots,
 				"gst":       asset.Gst,
