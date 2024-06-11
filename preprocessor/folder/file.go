@@ -50,9 +50,9 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 				"metadata":  string(asset.MetadataBytes),
 				"meta_sig":  string(asset.MetadataSignature),
 				"media_sig": string(asset.AssetSignature),
-				"pubkey":    asset.PubKey,
+				"pubkey":    string(asset.PubKey),
 				"ots":       asset.Ots,
-				"gst":       asset.Gst,
+				"gst":       string(asset.Gst),
 			},
 		}
 		metadatas = append(metadatas, metadata)
