@@ -222,6 +222,7 @@ func CheckIsProofModeFile(filePath string) bool {
 	if err != nil {
 		return false
 	}
+	defer zipListing.Close()
 	found := false
 	for _, file := range zipListing.File {
 		if file.Name == "HowToVerifyProofData.txt" {
