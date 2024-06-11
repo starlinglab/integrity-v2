@@ -18,18 +18,18 @@ The JWT token should be set in the `Authorization` HTTP header with a value of `
 
 ## Endpoints
 
-### /generic
+### POST /generic
 
 #### Body
 
-- **Type:** `application/x-www-form-urlencoded`
+- **Type:** `multipart/form-data`
 
-- **Form Fields:**
+- **Parts:**
 
-  | Key      | Description                                                                |
-  |----------|----------------------------------------------------------------------------|
+  | Key      | Description                                                                                    |
+  | -------- | ---------------------------------------------------------------------------------------------- |
   | metadata | File metadata, attributes in key/value pairs, accepts `application/json` or `application/cbor` |
-  | file     | File to be uploaded, `application/octet-stream`                            |
+  | file     | File to be uploaded, must have file name, media type is ignored                                |
 
 #### Description
 
@@ -37,4 +37,6 @@ Generic endpoint for uploading and registering a file with attributes.
 
 ## Encryption of Private Attributes
 
-When the attribute key matches the list of predefined private attributes (currently hardcoded values are "private" and "proofmode"), the webhook automatically encrypts the attribute key before registering it on the authenticated attribute service. A 32-byte private key is automatically read or generated from `Dirs.EncKeys`, in the format of `${CID}_${ATTRIBUTE_KEY}.key`.
+When the attribute key matches the list of predefined private attributes (currently hardcoded values are "private" and "proofmode"), the webhook automatically encrypts the attribute key before registering it on the authenticated attribute service.
+Private attributes can be either be a simple value, or a nested map of key value pairs. In the case of a map, keys are not encrypted.
+A 32-byte private key is automatically read or generated from `Dirs.EncKeys`, in the format of `${CID}_${ATTRIBUTE_KEY}.key`.
