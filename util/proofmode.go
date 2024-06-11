@@ -14,7 +14,7 @@ import (
 
 	"lukechampine.com/blake3"
 
-	"golang.org/x/crypto/openpgp" // nolint:staticcheck
+	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
 type ProofModeAssetMetadata struct {
@@ -85,7 +85,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	assetFileReader = io.TeeReader(assetFileReader, blake)
 
 	// verify asset signature
-	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, assetFileReader, bytes.NewReader(assetSignatureBytes))
+	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, assetFileReader, bytes.NewReader(assetSignatureBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("asset signature verification failed")
 	}
@@ -106,7 +106,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	if err != nil {
 		return nil, err
 	}
-	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, bytes.NewReader(jsonMetadataBytes), bytes.NewReader(jsonMetadataSignatureBytes))
+	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, bytes.NewReader(jsonMetadataBytes), bytes.NewReader(jsonMetadataSignatureBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
@@ -131,7 +131,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	if err != nil {
 		return nil, err
 	}
-	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, bytes.NewReader(csvMetadataBytes), bytes.NewReader(csvMetadataSignatureBytes))
+	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, bytes.NewReader(csvMetadataBytes), bytes.NewReader(csvMetadataSignatureBytes), nil)
 	if err != nil {
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
