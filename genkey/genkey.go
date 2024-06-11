@@ -1,18 +1,9 @@
 package genkey
 
 import (
-	"crypto/rand"
-	"errors"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
 
-	"github.com/starlinglab/integrity-v2/config"
-)
-
-const (
-	secretboxKeySize = 32
+	"github.com/starlinglab/integrity-v2/util"
 )
 
 func Run(args []string) error {
@@ -22,9 +13,6 @@ func Run(args []string) error {
 $ genkey aa-enc
 $ genkey aa-sig`)
 	}
-
-	conf := config.GetConfig()
-
 	if args[0] == "aa-sig" {
 		fmt.Println(`Currently not implemented. Instead run: openssl genpkey -algorithm ED25519`)
 		return nil
@@ -45,25 +33,14 @@ $ genkey aa-sig`)
 		return err
 	}
 
-	path := filepath.Join(conf.Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr))
-
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	path, _, isNew, err := util.GenerateEncKey(cid, attr)
 	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("key already exists!: %w", err)
-		}
-		return fmt.Errorf("error creating key file: %w", err)
+		return err
 	}
-	defer f.Close()
-
-	_, err = io.CopyN(f, rand.Reader, secretboxKeySize)
-	if err != nil {
-		// Cleanup
-		f.Close()
-		os.Remove(path)
-		return fmt.Errorf("failed to write key: %w", err)
+	if !isNew {
+		fmt.Printf("Key already exists at %s\n", path)
+		return nil
 	}
-
 	fmt.Printf("Generated key was stored at %s\n", path)
 
 	return nil
