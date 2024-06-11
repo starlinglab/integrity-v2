@@ -35,8 +35,8 @@ The JWT token should be set in the `Authorization` HTTP header with a value of `
 
 Generic endpoint for uploading and registering a file with attributes.
 
-## Encryption of Private Attributes
+#### Encryption of Private Attributes
 
-When the attribute key matches the list of predefined private attributes (currently hardcoded values are "private" and "proofmode"), the webhook automatically encrypts the attribute key before registering it on the authenticated attribute service.
-Private attributes can be either be a simple value, or a nested map of key value pairs. In the case of a map, keys are not encrypted.
-A 32-byte private key is automatically read or generated from `Dirs.EncKeys`, in the format of `${CID}_${ATTRIBUTE_KEY}.key`.
+In the `metadata` part, there is a special key called `private`. Any key-value pairs under `private` will be stored in Authenticated Attributes as attributes like normal, but encrypted, with the encryption key stored at `Dirs.EncKeys` from the config.
+
+The encryption key is stored with the name `${CID}_${ATTRIBUTE_KEY}.key`, but CLI tools like `attr` will automatically find and use it for you.
