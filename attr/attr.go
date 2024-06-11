@@ -21,14 +21,6 @@ var (
 )
 
 func Run(args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("provide subcommand like 'get' or 'set'")
-	}
-	cmd := args[0]
-	if cmd != "set" && cmd != "get" {
-		return fmt.Errorf("supported subcommands are: get, set")
-	}
-
 	fs := flag.NewFlagSet("attr", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "name of attribute to get/set")
@@ -36,6 +28,16 @@ func Run(args []string) error {
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get/set is encrypted")
 	fs.StringVar(&encKeyPath, "key", "", "(optional) manual path to encryption key file, implies --encrypted")
+
+	if len(args) == 0 {
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide subcommand like 'get' or 'set'")
+	}
+	cmd := args[0]
+	if cmd != "set" && cmd != "get" {
+		fs.PrintDefaults()
+		return fmt.Errorf("\nsupported subcommands are: get, set")
+	}
 
 	err := fs.Parse(args[1:])
 	if err != nil {
@@ -45,22 +47,27 @@ func Run(args []string) error {
 
 	// Validate flags
 	if cid == "" {
-		return fmt.Errorf("provide CID with --cid")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide CID with --cid")
 	}
 	if attr == "" {
-		return fmt.Errorf("provide attribute name with --attr")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide attribute name with --attr")
 	}
 	if cmd == "get" {
 		if strInput != "" || jsonInput != "" {
-			return fmt.Errorf("input flags not supported for get command")
+			fs.PrintDefaults()
+			return fmt.Errorf("\ninput flags not supported for get command")
 		}
 	} else {
 		// "set"
 		if strInput != "" && jsonInput != "" {
-			return fmt.Errorf("only one of --str and --json are allowed")
+			fs.PrintDefaults()
+			return fmt.Errorf("\nonly one of --str and --json are allowed")
 		}
 		if strInput == "" && jsonInput == "" {
-			return fmt.Errorf("one of --str or --json must be set")
+			fs.PrintDefaults()
+			return fmt.Errorf("\none of --str or --json must be set")
 		}
 		if isEncrypted {
 			return fmt.Errorf("TODO support encrypted set")

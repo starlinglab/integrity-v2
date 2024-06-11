@@ -34,16 +34,20 @@ func Run(args []string) error {
 
 	// Validate input
 	if cid == "" {
-		return fmt.Errorf("provide CID with --cid")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide CID with --cid")
 	}
 	if attr == "" {
-		return fmt.Errorf("provide attribute name with --attr")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide attribute name with --attr")
 	}
 	if format != "cbor" && format != "vc" {
-		return fmt.Errorf("format must be one of cbor,vc")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nformat must be one of cbor,vc")
 	}
 	if output == "" {
-		return fmt.Errorf("must provide output path with -o")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nmust provide output path with -o")
 	}
 
 	conf := config.GetConfig()

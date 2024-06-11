@@ -36,10 +36,12 @@ func Run(args []string) error {
 
 	// Validate input
 	if cid == "" {
-		return fmt.Errorf("provide CID with --cid")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide CID with --cid")
 	}
 	if manifestName == "" {
-		return fmt.Errorf("provide manifest name with --manifest")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide manifest name with --manifest")
 	}
 
 	conf := config.GetConfig()

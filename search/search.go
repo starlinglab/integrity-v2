@@ -7,12 +7,14 @@ import (
 	"github.com/starlinglab/integrity-v2/aa"
 )
 
-func Run(args []string) error {
-	if len(args) == 0 {
-		fmt.Println(`$ search att <cid>
+const helpText = `$ search att <cid>
 <list of all the attestation names>
 $ search cids
-<list of all the CIDs in the database>`)
+<list of all the CIDs in the database>`
+
+func Run(args []string) error {
+	if len(args) == 0 {
+		fmt.Println(helpText)
 		return nil
 	}
 
@@ -41,6 +43,11 @@ $ search cids
 		for _, cid := range cids {
 			fmt.Println(cid)
 		}
+		return nil
+	}
+
+	if args[0] == "--help" || args[0] == "help" || args[0] == "-h" {
+		fmt.Println(helpText)
 		return nil
 	}
 

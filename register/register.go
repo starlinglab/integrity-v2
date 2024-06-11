@@ -38,10 +38,12 @@ func Run(args []string) error {
 
 	// Validate input
 	if cid == "" {
-		return fmt.Errorf("provide CID with --cid")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide CID with --cid")
 	}
 	if chain == "" {
-		return fmt.Errorf("provide chain/network with --on: numbers,avalanche,near")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,near")
 	}
 
 	// Currently only one registration API is supported: Numbers Protocol

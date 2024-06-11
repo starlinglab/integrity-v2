@@ -14,7 +14,8 @@ import (
 )
 
 func Run(args []string) error {
-	if len(args) != 1 {
+	if len(args) != 1 ||
+		(len(args) > 0 && (args[0] == "--help" || args[0] == "help" || args[0] == "-h")) {
 		return fmt.Errorf("just pass a single CID to encrypt")
 	}
 	cid := args[0]

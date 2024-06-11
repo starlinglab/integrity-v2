@@ -28,7 +28,8 @@ func Run(args []string) error {
 	}
 
 	if inPath == "" || keyPath == "" || outPath == "" {
-		return fmt.Errorf("all flags must be specified, see --help")
+		fs.PrintDefaults()
+		return fmt.Errorf("\nall flags must be specified")
 	}
 
 	fi, err := os.Stat(keyPath)
