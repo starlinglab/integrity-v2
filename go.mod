@@ -19,7 +19,7 @@ require (
 	lukechampine.com/blake3 v1.3.0
 )
 
-require github.com/cloudflare/circl v1.3.3 // indirect
+require github.com/cloudflare/circl v1.3.7 // indirect
 
 require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc // indirect
