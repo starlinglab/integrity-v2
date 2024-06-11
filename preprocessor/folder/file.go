@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
 	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
+	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -25,6 +26,13 @@ var (
 	FileStatusError     = "Error"
 )
 
+func getAssetOriginRoot(filePath string) string {
+	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+	syncRoot = filepath.Clean(syncRoot)
+	assetOriginRoot := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
+	return assetOriginRoot
+}
+
 // getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
 func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	assets, err := proofmode.ReadAndVerifyMetadata(filePath)
@@ -33,11 +41,9 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	}
 	metadatas := []map[string]any{}
 	for _, asset := range assets {
-
-		syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-		syncRoot = filepath.Clean(syncRoot)
 		fileName := filepath.Base(asset.Metadata.FilePath)
-		assetOrigin := filepath.Join(strings.TrimPrefix(filePath, syncRoot), asset.Metadata.FilePath)
+		assetOriginRoot := getAssetOriginRoot(filePath)
+		assetOrigin := filepath.Join(assetOriginRoot, asset.Metadata.FilePath)
 
 		metadata := map[string]any{
 			"file_name":         fileName,
@@ -66,17 +72,19 @@ func getWaczFileMetadata(filePath string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	waczMetadata := map[string]any{
-		"last_modified":   metadata.Modified,
-		"time_created":    metadata.Created,
-		"asset_origin":    strings.TrimPrefix(filePath, syncRoot),
-		"asset_signature": hex.EncodeToString(metadata.MetadataSignature),
-		"media_type":      mediaType,
-		"wacz": map[string]([]byte){
-			"metadata": metadata.MetadataBytes,
-			"meta_sig": metadata.MetadataSignature,
-			"pubkey":   metadata.PubKey,
+		"last_modified":          metadata.PackageData.Modified,
+		"time_created":           metadata.PackageData.Created,
+		"asset_origin_id":        getAssetOriginRoot(filePath),
+		"asset_origin_signature": metadata.DigestData.SignedData.Signature,
+		"media_type":             mediaType,
+		"asset_origin_type":      []string{"wacz"},
+		"wacz": map[string](string){
+			"hash":      metadata.DigestData.SignedData.Hash,
+			"signature": metadata.DigestData.SignedData.Signature,
+			"publicKey": metadata.DigestData.SignedData.PublicKey,
+			"created":   metadata.PackageData.Created.UTC().Format(time.RFC3339),
+			"software":  metadata.PackageData.Software,
 		},
 	}
 	return waczMetadata, nil
@@ -93,14 +101,9 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 	if err != nil {
 		return nil, err
 	}
-
-	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-	syncRoot = filepath.Clean(syncRoot)
-	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
-
 	return map[string]any{
 		"media_type":      mediaType,
-		"asset_origin_id": assetOrigin,
+		"asset_origin_id": getAssetOriginRoot(filePath),
 		"file_name":       fileInfo.Name(),
 		"last_modified":   fileInfo.ModTime().UTC().Format(time.RFC3339),
 		"time_created":    fileInfo.ModTime().UTC().Format(time.RFC3339),

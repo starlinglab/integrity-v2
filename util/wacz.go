@@ -60,15 +60,8 @@ type waczPackageData struct {
 }
 
 type WaczFileData struct {
-	Version           string
-	Created           time.Time
-	Modified          time.Time
-	Software          string
-	Title             string
-	MetadataBytes     []byte
-	MetadataSignature []byte
-	PubKey            []byte
-	Domain            string
+	DigestData  *waczDigestData
+	PackageData *waczPackageData
 }
 
 // https://github.com/webrecorder/authsign/blob/main/authsign/trusted/roots.yaml
@@ -357,7 +350,6 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 	}
 
 	verified := false
-	pubKey := []byte{}
 
 	if digestData.SignedData.PublicKey != "" {
 		pubKey, err := base64.StdEncoding.DecodeString(digestData.SignedData.PublicKey)
@@ -402,14 +394,7 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 	}
 
 	return &WaczFileData{
-		Version:           packageData.WaczVersion,
-		Created:           packageData.Created,
-		Modified:          packageData.Modified,
-		Software:          packageData.Software,
-		Title:             packageData.Title,
-		MetadataBytes:     dataPackageBytes,
-		MetadataSignature: metadataSignature,
-		PubKey:            pubKey,
-		Domain:            digestData.SignedData.Domain,
+		DigestData:  &digestData,
+		PackageData: &packageData,
 	}, nil
 }
