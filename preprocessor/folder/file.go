@@ -73,12 +73,11 @@ func getWaczFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 	waczMetadata := map[string]any{
-		"last_modified":          metadata.PackageData.Modified,
-		"time_created":           metadata.PackageData.Created,
-		"asset_origin_id":        getAssetOriginRoot(filePath),
-		"asset_origin_signature": metadata.DigestData.SignedData.Signature,
-		"media_type":             mediaType,
-		"asset_origin_type":      []string{"wacz"},
+		"last_modified":     metadata.PackageData.Modified,
+		"time_created":      metadata.PackageData.Created,
+		"asset_origin_id":   getAssetOriginRoot(filePath),
+		"media_type":        mediaType,
+		"asset_origin_type": []string{"wacz"},
 		"wacz": map[string](string){
 			"hash":      metadata.DigestData.SignedData.Hash,
 			"signature": metadata.DigestData.SignedData.Signature,
