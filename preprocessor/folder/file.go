@@ -40,13 +40,12 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 		assetOrigin := filepath.Join(strings.TrimPrefix(filePath, syncRoot), asset.Metadata.FilePath)
 
 		metadata := map[string]any{
-			"file_name":              fileName,
-			"last_modified":          asset.Metadata.FileModified,
-			"time_created":           asset.Metadata.FileCreated,
-			"asset_origin_id":        assetOrigin,
-			"asset_origin_signature": string(asset.AssetSignature),
-			"asset_origin_type":      []string{"proofmode"},
-			"media_type":             asset.MediaType,
+			"file_name":         fileName,
+			"last_modified":     asset.Metadata.FileModified,
+			"time_created":      asset.Metadata.FileCreated,
+			"asset_origin_id":   assetOrigin,
+			"asset_origin_type": []string{"proofmode"},
+			"media_type":        asset.MediaType,
 			"proofmode": map[string]any{
 				"metadata":  string(asset.MetadataBytes),
 				"meta_sig":  string(asset.MetadataSignature),
