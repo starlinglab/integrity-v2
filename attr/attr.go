@@ -17,6 +17,7 @@ var (
 	strInput    string
 	jsonInput   string
 	isEncrypted bool
+	encKeyPath  string
 )
 
 func Run(args []string) error {
@@ -34,6 +35,7 @@ func Run(args []string) error {
 	fs.StringVar(&strInput, "str", "", "string to set as value")
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get/set is encrypted")
+	fs.StringVar(&encKeyPath, "key", "", "(optional) manual path to encryption key file, implies --encrypted")
 
 	err := fs.Parse(args[1:])
 	if err != nil {
@@ -67,7 +69,13 @@ func Run(args []string) error {
 
 	// Load attribute encryption key
 	var encKey []byte
-	if isEncrypted {
+	if encKeyPath != "" {
+		var err error
+		encKey, err = os.ReadFile(encKeyPath)
+		if err != nil {
+			return fmt.Errorf("error reading key: %w", err)
+		}
+	} else if isEncrypted {
 		var err error
 		encKey, err = os.ReadFile(
 			filepath.Join(config.GetConfig().Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr)),
