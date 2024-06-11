@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 
 	"path/filepath"
 
@@ -37,6 +38,7 @@ type ProofModeFileData struct {
 	Md5               string
 	Blake3            string
 	FileSize          uint64
+	MediaType         string
 	Metadata          *ProofModeAssetMetadata
 }
 
@@ -75,15 +77,25 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	if err != nil {
 		return nil, err
 	}
+	headerBytes := make([]byte, 512)
+	_, err = io.ReadFull(assetFile, headerBytes)
+	if err != nil {
+		return nil, err
+	}
+	mediaType := http.DetectContentType(headerBytes)
+	assetFile.Close()
+
+	assetFile, err = fileMap[fileName].Open()
+	if err != nil {
+		return nil, err
+	}
 	defer assetFile.Close()
+
 	fileSize := fileMap[fileName].UncompressedSize64
 	sha := sha256.New()
 	md := md5.New()
 	blake := blake3.New(32, nil)
-	assetFileReader := io.TeeReader(assetFile, sha)
-	assetFileReader = io.TeeReader(assetFileReader, md)
-	assetFileReader = io.TeeReader(assetFileReader, blake)
-
+	assetFileReader := io.TeeReader(assetFile, io.MultiWriter(sha, md, blake))
 	// verify asset signature
 	_, err = openpgp.CheckArmoredDetachedSignature(keyRing, assetFileReader, bytes.NewReader(assetSignatureBytes), nil)
 	if err != nil {
@@ -167,6 +179,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 		Ots:               otsBytes,
 		Gst:               gstBytes,
 		FileSize:          fileSize,
+		MediaType:         mediaType,
 		Metadata:          nil,
 	}
 

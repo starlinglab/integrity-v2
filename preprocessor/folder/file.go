@@ -26,7 +26,6 @@ var (
 )
 
 func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
-	mediaType := "application/zip"
 	assets, err := util.ReadAndVerifyProofModeMetadata(filePath)
 	if err != nil {
 		return nil, err
@@ -45,7 +44,7 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 			"time_created":           asset.Metadata.FileCreated,
 			"asset_origin":           assetOrigin,
 			"asset_origin_signature": string(asset.AssetSignature),
-			"media_type":             mediaType,
+			"media_type":             asset.MediaType,
 			"proofmode": map[string]([]byte){
 				"metadata":  asset.MetadataBytes,
 				"meta_sig":  asset.MetadataSignature,
