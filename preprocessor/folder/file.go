@@ -113,6 +113,10 @@ func checkFileType(filePath string) (string, string, error) {
 // posts the new file and its metadata to the webhook server,
 // and returns the CID of the file according to the server.
 func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryResult) (string, error) {
+	if project == nil {
+		return "", fmt.Errorf("project not found for file %s", filePath)
+	}
+
 	if len(project.FileExtensions) > 0 {
 		fileExt := filepath.Ext(filePath)
 		if !slices.Contains(project.FileExtensions, fileExt) {
@@ -177,23 +181,22 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 	if err != nil {
 		return "", fmt.Errorf("error setting file status to uploading: %v", err)
 	}
-	if project != nil {
-		for _, metadata := range metadatas {
-			metadata["project_id"] = project.ProjectId
-			metadata["project_path"] = filepath.Clean(project.ProjectPath)
-			if project.AuthorType != "" || project.AuthorName != "" || project.AuthorIdentifier != "" {
-				author := map[string]string{}
-				if project.AuthorType != "" {
-					author["@type"] = project.AuthorType
-				}
-				if project.AuthorName != "" {
-					author["name"] = project.AuthorName
-				}
-				if project.AuthorIdentifier != "" {
-					author["identifier"] = project.AuthorIdentifier
-				}
-				metadata["author"] = author
+
+	for _, metadata := range metadatas {
+		metadata["project_id"] = project.ProjectId
+		metadata["project_path"] = filepath.Clean(project.ProjectPath)
+		if project.AuthorType != "" || project.AuthorName != "" || project.AuthorIdentifier != "" {
+			author := map[string]string{}
+			if project.AuthorType != "" {
+				author["@type"] = project.AuthorType
 			}
+			if project.AuthorName != "" {
+				author["name"] = project.AuthorName
+			}
+			if project.AuthorIdentifier != "" {
+				author["identifier"] = project.AuthorIdentifier
+			}
+			metadata["author"] = author
 		}
 	}
 
