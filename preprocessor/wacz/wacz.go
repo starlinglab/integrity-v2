@@ -76,8 +76,8 @@ var trustedTimestampFingerprints = []string{
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
 }
 
-// VerifyWaczFile verifies the hash of files listed in the package data.
-func verifyWaczFileHashes(packageData *waczPackageData, fileMap map[string]*zip.File) error {
+// verifyFileHashes verifies the hash of files listed in the package data.
+func verifyFileHashes(packageData *waczPackageData, fileMap map[string]*zip.File) error {
 	for _, resource := range packageData.Resources {
 		file, ok := fileMap[resource.Path]
 		if !ok {
@@ -100,8 +100,8 @@ func verifyWaczFileHashes(packageData *waczPackageData, fileMap map[string]*zip.
 	return nil
 }
 
-// verifyWaczAnonymousSignature verifies a signature using an anonymous public key.
-func verifyWaczAnonymousSignature(message string, signatureBytes []byte, pubKeyBytes []byte) (bool, error) {
+// verifyAnonymousSignature verifies a signature using an anonymous public key.
+func verifyAnonymousSignature(message string, signatureBytes []byte, pubKeyBytes []byte) (bool, error) {
 	pub, err := x509.ParsePKIXPublicKey(pubKeyBytes)
 	if err != nil {
 		return false, err
@@ -215,8 +215,8 @@ func verifyCertificate(certString string, trustedFingerprints []string) (*x509.C
 	return targetCert, nil
 }
 
-// verifyWaczDomainSignature verifies a signature in a domain signed wacz file.
-func verifyWaczDomainSignature(
+// verifyDomainSignature verifies a signature in a domain signed wacz file.
+func verifyDomainSignature(
 	message string,
 	domain string,
 	signatureBytes []byte,
@@ -339,7 +339,7 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		return nil, fmt.Errorf("hash mismatch")
 	}
 
-	err = verifyWaczFileHashes(&packageData, fileMap)
+	err = verifyFileHashes(&packageData, fileMap)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 			return nil, err
 		}
 
-		verified, err = verifyWaczAnonymousSignature(digestData.SignedData.Hash, metadataSignature, pubKey)
+		verified, err = verifyAnonymousSignature(digestData.SignedData.Hash, metadataSignature, pubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +374,7 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 			return nil, err
 		}
 
-		verified, err = verifyWaczDomainSignature(
+		verified, err = verifyDomainSignature(
 			digestData.SignedData.Hash,
 			digestData.SignedData.Domain,
 			metadataSignature,

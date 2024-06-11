@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
 	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
-	"github.com/starlinglab/integrity-v2/util"
+	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -68,7 +68,7 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 
 func getWaczFileMetadata(filePath string) (map[string]any, error) {
 	mediaType := "application/wacz"
-	metadata, err := util.ReadAndVerifyWaczMetadata(filePath)
+	metadata, err := wacz.ReadAndVerifyWaczMetadata(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func checkFileType(filePath string) (string, string, error) {
 		if isProofMode {
 			fileType = "proofmode"
 		}
-		isWacz := util.CheckIsWaczFile(filePath)
+		isWacz := wacz.CheckIsWaczFile(filePath)
 		if isWacz {
 			fileType = "wacz"
 		}
