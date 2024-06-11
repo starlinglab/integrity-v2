@@ -16,7 +16,7 @@ Please see [`example_config.toml`](./example_config.toml) for an example config 
 
 Environment variables, for configuration outside of the config file:
 
-- `INTEGRITY_CONFIG_PATH`: path to config file if not at the default path
+- `INTEGRITY_CONFIG_PATH`: path to config file if not at the default path. Note any file named `integrity-v2.toml` in the current directory will automatically be checked as well if the default path doesn't exist.
 - `JWT_SECRET`: set the JWT secret for web services like the webhook
 - `TMPDIR`: set the directory for temporary files, `/var/tmp` by default
 

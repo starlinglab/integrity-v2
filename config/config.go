@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -55,14 +56,29 @@ func GetConfig() *Config {
 		return conf
 	}
 
-	configPath := os.Getenv("INTEGRITY_CONFIG_PATH") // For debugging
-	if configPath == "" {
-		// Default well known path
-		configPath = "/etc/integrity-v2/config.toml"
+	configPaths := []string{"/etc/integrity-v2/config.toml", "integrity-v2.toml"}
+	if s := os.Getenv("INTEGRITY_CONFIG_PATH"); s != "" {
+		// Force usage of env var over all else
+		configPaths = []string{s}
 	}
-	_, err := toml.DecodeFile(configPath, &conf)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to decode config: %v\n", err)
+
+	var err error
+	for _, path := range configPaths {
+		_, err = toml.DecodeFile(path, &conf)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to decode config: %v\n", err)
+			os.Exit(1)
+		}
+		// Decoding worked
+		fmt.Fprintf(os.Stderr, "using config file: %s\n", path)
+		break
+	}
+
+	if conf == nil {
+		fmt.Fprintln(os.Stderr, "failed to find config file")
 		os.Exit(1)
 	}
 	return conf
