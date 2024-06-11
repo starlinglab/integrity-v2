@@ -42,6 +42,8 @@ type ProofModeFileData struct {
 	Metadata          *ProofModeAssetMetadata
 }
 
+// validateAndParseProofModeFileSignatures reads a file and verify
+// its asset and metadata hash and signature
 func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileName string, fileSha string, jsonMetadataBytes []byte) (
 	*ProofModeFileData,
 	error,
@@ -56,6 +58,7 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	if err != nil {
 		return nil, err
 	}
+	// TODO: check key against db https://github.com/starlinglab/integrity-v2/issues/25
 	keyRing, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(keyFileBytes))
 	if err != nil {
 		return nil, err
@@ -186,6 +189,8 @@ func validateAndParseProofModeFileSignatures(fileMap map[string]*zip.File, fileN
 	return &fileData, nil
 }
 
+// parseProofModeBundleAssetInfo reads the files in the zip
+// and returns a map of files and the json metadata files
 func parseProofModeBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
 	var jsonFilesBytes [][]byte
 	fileMap := map[string]*zip.File{}
@@ -208,6 +213,7 @@ func parseProofModeBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.F
 	return fileMap, jsonFilesBytes, nil
 }
 
+// CheckIsProofModeFile checks if the file is a proofmode file
 func CheckIsProofModeFile(filePath string) bool {
 	if filepath.Ext(filePath) != ".zip" {
 		return false
@@ -226,6 +232,7 @@ func CheckIsProofModeFile(filePath string) bool {
 	return found
 }
 
+// GetProofModeZipFiles reads the files mapping and JSON metadata in the zip
 func GetProofModeZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][]byte, error) {
 	fileMap, jsonFilesBytes, err := parseProofModeBundleAssetInfo(zipListing)
 	if err != nil {
@@ -237,6 +244,8 @@ func GetProofModeZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][
 	return fileMap, jsonFilesBytes, nil
 }
 
+// ReadAndVerifyProofModeMetadata reads and verifies a proof mode file
+// and returns its metadata
 func ReadAndVerifyProofModeMetadata(filePath string) ([]*ProofModeFileData, error) {
 	zipListing, err := zip.OpenReader(filePath)
 	if err != nil {

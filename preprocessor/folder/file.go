@@ -25,6 +25,7 @@ var (
 	FileStatusError     = "Error"
 )
 
+// getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
 func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	assets, err := util.ReadAndVerifyProofModeMetadata(filePath)
 	if err != nil {
@@ -84,6 +85,8 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 	}, nil
 }
 
+// checkFileType checks if the file is a zip based special file type
+// that we will handle differently
 func checkFileType(filePath string) (string, string, error) {
 	fileType := "generic" // default is generic
 	file, err := os.Open(filePath)
