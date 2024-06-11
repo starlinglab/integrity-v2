@@ -1,0 +1,14 @@
+{
+  "ta_url": "http://timestamp.digicert.com",
+  "claim_generator": "integrity-v2",
+  "assertions": [
+    {
+      "label": "stds.schema-org.CreativeWork",
+      "data": {
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        "author": ["{{author}}"]
+      }
+    }
+  ]
+}
