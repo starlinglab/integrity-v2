@@ -69,8 +69,8 @@ func Run(args []string) error {
 			fs.PrintDefaults()
 			return fmt.Errorf("\none of --str or --json must be set")
 		}
-		if isEncrypted {
-			return fmt.Errorf("TODO support encrypted set")
+		if encKeyPath != "" {
+			return fmt.Errorf("custom key file is not supported for set")
 		}
 	}
 
@@ -94,6 +94,9 @@ func Run(args []string) error {
 
 	if cmd == "get" {
 		ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey})
+		if err == aa.ErrNeedsKey {
+			return fmt.Errorf("error attestation is encrypted, use --encrypted or --key")
+		}
 		if err != nil {
 			return fmt.Errorf("error getting attestation: %w", err)
 		}
@@ -117,7 +120,7 @@ func Run(args []string) error {
 		}
 	}
 
-	err = aa.SetAttestations(cid, false, []aa.PostKV{{Key: attr, Value: val}})
+	err = aa.SetAttestations(cid, false, []aa.PostKV{{Key: attr, Value: val, EncKey: encKey}})
 	if err != nil {
 		return fmt.Errorf("error setting attestation: %w", err)
 	}
