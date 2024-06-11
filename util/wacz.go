@@ -83,6 +83,7 @@ var trustedTimestampFingerprints = []string{
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
 }
 
+// VerifyWaczFile verifies the hash of files listed in the package data.
 func verifyWaczFileHashes(packageData *waczPackageData, fileMap map[string]*zip.File) error {
 	for _, resource := range packageData.Resources {
 		file, ok := fileMap[resource.Path]
@@ -106,6 +107,7 @@ func verifyWaczFileHashes(packageData *waczPackageData, fileMap map[string]*zip.
 	return nil
 }
 
+// verifyWaczAnonymousSignature verifies a signature using an anonymous public key.
 func verifyWaczAnonymousSignature(message string, signatureBytes []byte, pubKeyBytes []byte) (bool, error) {
 	pub, err := x509.ParsePKIXPublicKey(pubKeyBytes)
 	if err != nil {
@@ -141,6 +143,8 @@ func verifyWaczAnonymousSignature(message string, signatureBytes []byte, pubKeyB
 	return ecdsa.Verify(publicKey, h.Sum(nil), s.R, s.S), nil
 }
 
+// verifyTimestamp verifies the RFC3161 timestamp token
+// and signature in domain signed wacz file.
 func verifyTimestamp(message []byte, signatureBytes []byte, timestampCert *x509.Certificate) (*time.Time, error) {
 	tst, err := timestamp.ParseResponse(signatureBytes)
 	if err != nil {
@@ -169,6 +173,7 @@ func verifyTimestamp(message []byte, signatureBytes []byte, timestampCert *x509.
 	return &tst.Time, nil
 }
 
+// verifyCertificate verifies the certificates in domain signed wacz file.
 func verifyCertificate(certString string, trustedFingerprints []string) (*x509.Certificate, error) {
 	certs := []*x509.Certificate{}
 	certBytes := []byte(certString)
@@ -217,6 +222,7 @@ func verifyCertificate(certString string, trustedFingerprints []string) (*x509.C
 	return targetCert, nil
 }
 
+// verifyWaczDomainSignature verifies a signature in a domain signed wacz file.
 func verifyWaczDomainSignature(
 	message string,
 	domain string,
@@ -263,6 +269,7 @@ func verifyWaczDomainSignature(
 	return true, nil
 }
 
+// CheckIsWaczFile checks if a file is a wacz file.
 func CheckIsWaczFile(filePath string) bool {
 	if filepath.Ext(filePath) != ".wacz" {
 		return false
@@ -281,6 +288,7 @@ func CheckIsWaczFile(filePath string) bool {
 	return found
 }
 
+// ReadAndVerifyWaczMetadata reads and verifies the metadata of a wacz file.
 func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 	zipListing, err := zip.OpenReader(filePath)
 	if err != nil {
