@@ -1,8 +1,8 @@
 package folder
 
 import (
+	"archive/zip"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
+	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -24,8 +25,43 @@ var (
 	FileStatusError     = "Error"
 )
 
+// getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
+func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
+	assets, err := proofmode.ReadAndVerifyMetadata(filePath)
+	if err != nil {
+		return nil, err
+	}
+	metadatas := []map[string]any{}
+	for _, asset := range assets {
+
+		syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+		syncRoot = filepath.Clean(syncRoot)
+		fileName := filepath.Base(asset.Metadata.FilePath)
+		assetOrigin := filepath.Join(strings.TrimPrefix(filePath, syncRoot), asset.Metadata.FilePath)
+
+		metadata := map[string]any{
+			"file_name":         fileName,
+			"last_modified":     asset.Metadata.FileModified,
+			"time_created":      asset.Metadata.FileCreated,
+			"asset_origin_id":   assetOrigin,
+			"asset_origin_type": []string{"proofmode"},
+			"media_type":        asset.MediaType,
+			"proofmode": map[string]any{
+				"metadata":  string(asset.MetadataBytes),
+				"meta_sig":  string(asset.MetadataSignature),
+				"media_sig": string(asset.AssetSignature),
+				"pubkey":    string(asset.PubKey),
+				"ots":       asset.Ots,
+				"gst":       string(asset.Gst),
+			},
+		}
+		metadatas = append(metadatas, metadata)
+	}
+	return metadatas, nil
+}
+
 // getFileMetadata calculates and returns a map of attributes for a file
-func getFileMetadata(filePath string) (map[string]any, error) {
+func getFileMetadata(filePath string, mediaType string) (map[string]any, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -36,34 +72,51 @@ func getFileMetadata(filePath string) (map[string]any, error) {
 		return nil, err
 	}
 
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil {
-		return nil, err
-	}
-	mediaType := http.DetectContentType(buffer[:n])
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	syncRoot = filepath.Clean(syncRoot)
 	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
 
 	return map[string]any{
-		"media_type":    mediaType,
-		"file_name":     fileInfo.Name(),
-		"last_modified": fileInfo.ModTime().UTC().Format(time.RFC3339),
-		"time_created":  fileInfo.ModTime().UTC().Format(time.RFC3339),
-		"asset_origin":  assetOrigin,
+		"media_type":      mediaType,
+		"asset_origin_id": assetOrigin,
+		"file_name":       fileInfo.Name(),
+		"last_modified":   fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"time_created":    fileInfo.ModTime().UTC().Format(time.RFC3339),
 	}, nil
+}
+
+// checkFileType checks if the file is a zip based special file type
+// that we will handle differently
+func checkFileType(filePath string) (string, string, error) {
+	fileType := "generic" // default is generic
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	defer file.Close()
+	buffer := make([]byte, 512)
+	n, err := file.Read(buffer)
+	if err != nil {
+		return "", "", err
+	}
+	mediaType := http.DetectContentType(buffer[:n])
+	if mediaType == "application/zip" {
+		isProofMode := proofmode.CheckIsProofModeFile(filePath)
+		if isProofMode {
+			fileType = "proofmode"
+		}
+	}
+	return fileType, mediaType, nil
 }
 
 // handleNewFile takes a discovered file, update file status on database,
 // posts the new file and its metadata to the webhook server,
 // and returns the CID of the file according to the server.
 func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryResult) (string, error) {
+	if project == nil {
+		return "", fmt.Errorf("project not found for file %s", filePath)
+	}
+
 	if len(project.FileExtensions) > 0 {
 		fileExt := filepath.Ext(filePath)
 		if !slices.Contains(project.FileExtensions, fileExt) {
@@ -95,15 +148,41 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 		// proceed to upload
 	}
 
-	metadata, err := getFileMetadata(filePath)
+	fileType, mediaType, err := checkFileType(filePath)
 	if err != nil {
 		if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
 			log.Println("error setting file status to error:", err)
 		}
-		return "", fmt.Errorf("error getting metadata for file %s: %v", filePath, err)
+		return "", fmt.Errorf("error checking file type for %s: %v", filePath, err)
 	}
 
-	if project != nil {
+	metadatas := []map[string]any{}
+	switch fileType {
+	case "proofmode":
+		metadatas, err = getProofModeFileMetadatas(filePath)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting proofmode file metadatas: %v", err)
+		}
+	case "generic":
+		metadata, err := getFileMetadata(filePath, mediaType)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting file metadata: %v", err)
+		}
+		metadatas = append(metadatas, metadata)
+	}
+
+	err = setFileStatusUploading(pgPool, filePath)
+	if err != nil {
+		return "", fmt.Errorf("error setting file status to uploading: %v", err)
+	}
+
+	for _, metadata := range metadatas {
 		metadata["project_id"] = project.ProjectId
 		metadata["project_path"] = filepath.Clean(project.ProjectPath)
 		if project.AuthorType != "" || project.AuthorName != "" || project.AuthorIdentifier != "" {
@@ -121,23 +200,73 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 		}
 	}
 
-	err = setFileStatusUploading(pgPool, filePath)
-	if err != nil {
-		return "", fmt.Errorf("error setting file status to uploading: %v", err)
-	}
-	resp, err := webhook.PostFileToWebHook(filePath, metadata, webhook.PostGenericWebhookOpt{})
-	if err != nil {
-		if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
-			log.Println("error setting file status to error:", err)
+	switch fileType {
+	case "proofmode":
+		zipListing, err := zip.OpenReader(filePath)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error opening zip file %s: %v", filePath, err)
 		}
-		return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
+		defer zipListing.Close()
+		fileMap, _, err := proofmode.GetMapOfZipFiles(zipListing)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting files from zip: %v", err)
+		}
+		for _, metadata := range metadatas {
+			fileName := metadata["file_name"].(string)
+			if zipFile, ok := fileMap[fileName]; ok {
+				file, err := zipFile.Open()
+				if err != nil {
+					if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+						log.Println("error setting file status to error:", err)
+					}
+					return "", fmt.Errorf("error opening file %s in zip: %v", fileName, err)
+				}
+				defer file.Close()
+				resp, err := webhook.PostFileToWebHook(file, metadata, webhook.PostGenericWebhookOpt{Format: "cbor"})
+				if err != nil {
+					if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+						log.Println("error setting file status to error:", err)
+					}
+					return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
+				}
+				cid = resp.Cid
+			} else {
+				if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+					log.Println("error setting file status to error:", err)
+				}
+				return "", fmt.Errorf("file %s not found in zip", fileName)
+			}
+		}
+	case "generic":
+		file, err := os.Open(filePath)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error opening file %s: %v", filePath, err)
+		}
+		defer file.Close()
+		resp, err := webhook.PostFileToWebHook(file, metadatas[0], webhook.PostGenericWebhookOpt{})
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error posting metadata for file %s: %v", filePath, err)
+		}
+		cid = resp.Cid
 	}
 
 	err = setFileStatusDone(pgPool, filePath, cid)
 	if err != nil {
 		return "", fmt.Errorf("error setting file status to done: %v", err)
 	}
-	return resp.Cid, nil
+	return cid, nil
 }
 
 // shouldIncludeFile reports whether the file should be included in the processing
