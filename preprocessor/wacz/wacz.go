@@ -29,8 +29,10 @@ type signature struct {
 }
 
 type waczDigestData struct {
-	Path       string `json:"path"`
-	Hash       string `json:"hash"`
+	Path string `json:"path"`
+	Hash string `json:"hash"`
+	// SignedData could contain either PublicKey
+	// or Domain, DomainCert, TimeSignature, TimestampCert, Version
 	SignedData struct {
 		Hash          string    `json:"hash"`
 		Signature     string    `json:"signature"`
@@ -226,6 +228,9 @@ func verifyDomainSignature(
 	timestampCertString string,
 	signatureCreated time.Time,
 ) (bool, error) {
+	// These verification steps are taken from the WACZ auth spec
+	// https://specs.webrecorder.net/wacz-auth/0.1.0/#domain-name-identity-timestamp-validation
+
 	domainCert, err := verifyCertificate(domainCertString, trustedDomainFingerprints)
 	if err != nil {
 		return false, err
