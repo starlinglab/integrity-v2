@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
 	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
+	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -25,6 +26,13 @@ var (
 	FileStatusError     = "Error"
 )
 
+func getAssetOriginRoot(filePath string) string {
+	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
+	syncRoot = filepath.Clean(syncRoot)
+	assetOriginRoot := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
+	return assetOriginRoot
+}
+
 // getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
 func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	assets, err := proofmode.ReadAndVerifyMetadata(filePath)
@@ -33,11 +41,9 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	}
 	metadatas := []map[string]any{}
 	for _, asset := range assets {
-
-		syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-		syncRoot = filepath.Clean(syncRoot)
 		fileName := filepath.Base(asset.Metadata.FilePath)
-		assetOrigin := filepath.Join(strings.TrimPrefix(filePath, syncRoot), asset.Metadata.FilePath)
+		assetOriginRoot := getAssetOriginRoot(filePath)
+		assetOrigin := filepath.Join(assetOriginRoot, asset.Metadata.FilePath)
 
 		metadata := map[string]any{
 			"file_name":         fileName,
@@ -62,6 +68,45 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	return metadatas, nil
 }
 
+func getWaczFileMetadata(filePath string) (map[string]any, error) {
+	mediaType := "application/wacz"
+	metadata, err := wacz.ReadAndVerifyWaczMetadata(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var wacz map[string]string
+	if metadata.DigestData.SignedData.PublicKey != "" {
+		wacz = map[string](string){
+			"hash":      metadata.DigestData.SignedData.Hash,
+			"signature": metadata.DigestData.SignedData.Signature,
+			"publicKey": metadata.DigestData.SignedData.PublicKey,
+			"created":   metadata.PackageData.Created.UTC().Format(time.RFC3339),
+			"software":  metadata.PackageData.Software,
+		}
+	} else {
+		wacz = map[string](string){
+			"hash":          metadata.DigestData.SignedData.Hash,
+			"signature":     metadata.DigestData.SignedData.Signature,
+			"version":       metadata.DigestData.SignedData.Version,
+			"domain":        metadata.DigestData.SignedData.Domain,
+			"domainCert":    metadata.DigestData.SignedData.DomainCert,
+			"timeSignature": metadata.DigestData.SignedData.Signature,
+			"timestampCert": metadata.DigestData.SignedData.TimestampCert,
+			"created":       metadata.PackageData.Created.UTC().Format(time.RFC3339),
+			"software":      metadata.PackageData.Software,
+		}
+	}
+	waczMetadata := map[string]any{
+		"last_modified":     metadata.PackageData.Modified,
+		"time_created":      metadata.PackageData.Created,
+		"asset_origin_id":   getAssetOriginRoot(filePath),
+		"media_type":        mediaType,
+		"asset_origin_type": []string{"wacz"},
+		"wacz":              wacz,
+	}
+	return waczMetadata, nil
+}
+
 // getFileMetadata calculates and returns a map of attributes for a file
 func getFileMetadata(filePath string, mediaType string) (map[string]any, error) {
 	file, err := os.Open(filePath)
@@ -73,14 +118,9 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 	if err != nil {
 		return nil, err
 	}
-
-	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
-	syncRoot = filepath.Clean(syncRoot)
-	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
-
 	return map[string]any{
 		"media_type":        mediaType,
-		"asset_origin_id":   assetOrigin,
+		"asset_origin_id":   getAssetOriginRoot(filePath),
 		"asset_origin_type": []string{"folder"},
 		"file_name":         fileInfo.Name(),
 		"last_modified":     fileInfo.ModTime().UTC().Format(time.RFC3339),
@@ -107,6 +147,10 @@ func checkFileType(filePath string) (string, string, error) {
 		isProofMode := proofmode.CheckIsProofModeFile(filePath)
 		if isProofMode {
 			fileType = "proofmode"
+		}
+		isWacz := wacz.CheckIsWaczFile(filePath)
+		if isWacz {
+			fileType = "wacz"
 		}
 	}
 	return fileType, mediaType, nil
@@ -169,6 +213,29 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			}
 			return "", fmt.Errorf("error getting proofmode file metadatas: %v", err)
 		}
+	case "wacz":
+		fileMetadata, err := getFileMetadata(filePath, mediaType)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting file metadata: %v", err)
+		}
+		waczMetadata, err := getWaczFileMetadata(filePath)
+		if err != nil {
+			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				log.Println("error setting file status to error:", err)
+			}
+			return "", fmt.Errorf("error getting wacz file metadatas: %v", err)
+		}
+		metadata := map[string]any{}
+		for k, v := range fileMetadata {
+			metadata[k] = v
+		}
+		for k, v := range waczMetadata {
+			metadata[k] = v
+		}
+		metadatas = append(metadatas, metadata)
 	case "generic":
 		metadata, err := getFileMetadata(filePath, mediaType)
 		if err != nil {
@@ -246,6 +313,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 				return "", fmt.Errorf("file %s not found in zip", fileName)
 			}
 		}
+	case "wacz":
 	case "generic":
 		file, err := os.Open(filePath)
 		if err != nil {

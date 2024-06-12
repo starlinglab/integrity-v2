@@ -6,6 +6,8 @@ require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/ProtonMail/go-crypto v1.0.0
 	github.com/carlmjohnson/versioninfo v0.22.5
+	github.com/digitorus/pkcs7 v0.0.0-20230713084857-e76b763bdc49
+	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/jwtauth/v5 v5.3.1
