@@ -46,13 +46,15 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 			"asset_origin_id":   assetOrigin,
 			"asset_origin_type": []string{"proofmode"},
 			"media_type":        asset.MediaType,
-			"proofmode": map[string]any{
-				"metadata":  string(asset.MetadataBytes),
-				"meta_sig":  string(asset.MetadataSignature),
-				"media_sig": string(asset.AssetSignature),
-				"pubkey":    string(asset.PubKey),
-				"ots":       asset.Ots,
-				"gst":       string(asset.Gst),
+			"private": map[string]any{ // "private" fields are encrypted
+				"proofmode": map[string]any{
+					"metadata":  string(asset.MetadataBytes),
+					"meta_sig":  string(asset.MetadataSignature),
+					"media_sig": string(asset.AssetSignature),
+					"pubkey":    string(asset.PubKey),
+					"ots":       asset.Ots,
+					"gst":       string(asset.Gst),
+				},
 			},
 		}
 		metadatas = append(metadatas, metadata)
