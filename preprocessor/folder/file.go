@@ -77,11 +77,12 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 	assetOrigin := filepath.Clean(strings.TrimPrefix(filePath, syncRoot))
 
 	return map[string]any{
-		"media_type":      mediaType,
-		"asset_origin_id": assetOrigin,
-		"file_name":       fileInfo.Name(),
-		"last_modified":   fileInfo.ModTime().UTC().Format(time.RFC3339),
-		"time_created":    fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"media_type":        mediaType,
+		"asset_origin_id":   assetOrigin,
+		"asset_origin_type": []string{"folder"},
+		"file_name":         fileInfo.Name(),
+		"last_modified":     fileInfo.ModTime().UTC().Format(time.RFC3339),
+		"time_created":      fileInfo.ModTime().UTC().Format(time.RFC3339),
 	}, nil
 }
 
