@@ -31,9 +31,7 @@ It also supports the following:
 web3.storage requires providing the "space" the file is uploaded to instead of
 a path.
 
-For traditional storage providers, the path is always a directory.
-
-CIDs are retrieved from the "files" and "c2pa" storage locations.`)
+For traditional storage providers, the path is always a directory.`)
 		return nil
 	}
 	if len(args) < 2 {
