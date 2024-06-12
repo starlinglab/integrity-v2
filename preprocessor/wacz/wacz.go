@@ -1,7 +1,7 @@
 package util
 
 import (
-	"archive/zip" // nolint:staticcheck
+	"archive/zip"
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
