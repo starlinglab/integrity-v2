@@ -19,22 +19,16 @@ func ParseMapToAttributes(cid string, attrMap map[string]any, fileAttributes map
 
 	for key, value := range attrMap {
 		if key == "private" {
-			if _, ok := value.(map[string]any); ok {
-				// private is a map
-				for pKey, pValue := range value.(map[string]any) {
-					_, encKey, _, err := util.GenerateEncKey(cid, pKey)
-					if err != nil {
-						return nil, fmt.Errorf("error reading key: %w", err)
-					}
-					attributes = append(attributes, aa.PostKV{Key: pKey, Value: pValue, EncKey: encKey})
-				}
-			} else {
-				// private is a value
-				_, encKey, _, err := util.GenerateEncKey(cid, key)
+			privMap, ok := value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("private must be a map of private key-value pairs")
+			}
+			for pKey, pValue := range privMap {
+				_, encKey, _, err := util.GenerateEncKey(cid, pKey)
 				if err != nil {
 					return nil, fmt.Errorf("error reading key: %w", err)
 				}
-				attributes = append(attributes, aa.PostKV{Key: key, Value: value, EncKey: encKey})
+				attributes = append(attributes, aa.PostKV{Key: pKey, Value: pValue, EncKey: encKey})
 			}
 		} else {
 			attributes = append(attributes, aa.PostKV{Key: key, Value: value})
