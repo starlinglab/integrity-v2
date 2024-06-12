@@ -41,6 +41,7 @@ type waczDigestData struct {
 		TimestampCert string    `json:"timestampCert,omitempty"` //
 		Created       time.Time `json:"created"`
 		Software      string    `json:"software"`
+		Version       string    `json:"version"`
 	} `json:"signedData"`
 }
 
