@@ -2,10 +2,14 @@ package webhook
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/util"
 )
+
+// list of attributes that should be indexed as string
+var indexedStringKeys []string = []string{"file_name", "asset_origin_id"}
 
 // ParseMapToAttributes parses a map and a file stat map
 // to a slice of attributes for POSTing to the AA server
@@ -30,6 +34,8 @@ func ParseMapToAttributes(cid string, attrMap map[string]any, fileAttributes map
 				}
 				attributes = append(attributes, aa.PostKV{Key: pKey, Value: pValue, EncKey: encKey})
 			}
+		} else if slices.Contains(indexedStringKeys, key) {
+			attributes = append(attributes, aa.PostKV{Key: key, Value: value, Type: "str"})
 		} else {
 			attributes = append(attributes, aa.PostKV{Key: key, Value: value})
 		}
