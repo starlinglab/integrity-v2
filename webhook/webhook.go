@@ -179,7 +179,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	err = aa.SetAttestations(cid, false, attributes)
+	err = aa.SetAttestations(cid, true, attributes)
 	if err != nil {
 		fmt.Println("Error setting attestations:", err)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
