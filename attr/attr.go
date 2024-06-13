@@ -18,6 +18,7 @@ var (
 	jsonInput   string
 	isEncrypted bool
 	encKeyPath  string
+	index       bool
 )
 
 func Run(args []string) error {
@@ -28,6 +29,7 @@ func Run(args []string) error {
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get/set is encrypted")
 	fs.StringVar(&encKeyPath, "key", "", "(optional) manual path to encryption key file, implies --encrypted")
+	fs.BoolVar(&index, "index", false, "index value when setting")
 
 	if len(args) == 0 {
 		fs.PrintDefaults()
@@ -59,6 +61,10 @@ func Run(args []string) error {
 			fs.PrintDefaults()
 			return fmt.Errorf("\ninput flags not supported for get command")
 		}
+		if index {
+			fs.PrintDefaults()
+			return fmt.Errorf("\n--index doesn't apply to get command")
+		}
 	} else {
 		// "set"
 		if strInput != "" && jsonInput != "" {
@@ -71,6 +77,9 @@ func Run(args []string) error {
 		}
 		if encKeyPath != "" {
 			return fmt.Errorf("custom key file is not supported for set")
+		}
+		if jsonInput != "" && index {
+			return fmt.Errorf("--index is only support for --str input currently")
 		}
 	}
 
@@ -111,8 +120,10 @@ func Run(args []string) error {
 	// "set"
 
 	var val any
+	var valType string
 	if strInput != "" {
 		val = strInput
+		valType = "str"
 	} else {
 		err := json.Unmarshal([]byte(jsonInput), &val)
 		if err != nil {
@@ -120,7 +131,7 @@ func Run(args []string) error {
 		}
 	}
 
-	err = aa.SetAttestations(cid, false, []aa.PostKV{{Key: attr, Value: val, EncKey: encKey}})
+	err = aa.SetAttestations(cid, index, []aa.PostKV{{Key: attr, Value: val, EncKey: encKey, Type: valType}})
 	if err != nil {
 		return fmt.Errorf("error setting attestation: %w", err)
 	}

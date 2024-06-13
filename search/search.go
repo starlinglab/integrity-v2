@@ -9,11 +9,22 @@ import (
 
 const helpText = `$ search att <cid>
 <list of all the attestation names>
+
 $ search cids
-<list of all the CIDs in the database>`
+<list of all the CIDs in the database>
+
+$ search index my_attr
+<all the values for my_attr that are indexed>
+
+$ search index my_attr my_value
+<all the CIDs that have that key-value pair>`
 
 func Run(args []string) error {
 	if len(args) == 0 {
+		fmt.Println(helpText)
+		return nil
+	}
+	if args[0] == "--help" || args[0] == "help" || args[0] == "-h" {
 		fmt.Println(helpText)
 		return nil
 	}
@@ -45,9 +56,35 @@ func Run(args []string) error {
 		}
 		return nil
 	}
+	if args[0] == "index" {
 
-	if args[0] == "--help" || args[0] == "help" || args[0] == "-h" {
-		fmt.Println(helpText)
+		var list []string
+
+		if len(args) == 2 {
+			// Value search
+			var err error
+			list, err = aa.IndexListQuery(args[1])
+			if err != nil {
+				return fmt.Errorf("error querying AA index: %w", err)
+			}
+		} else if len(args) == 3 {
+			// CID search
+			var err error
+			list, err = aa.IndexMatchQuery(args[1], args[2], "str")
+			if err != nil {
+				return fmt.Errorf("error querying AA index: %w", err)
+			}
+		} else {
+			return fmt.Errorf("unknown index invocation")
+		}
+
+		if len(list) == 0 {
+			fmt.Fprintln(os.Stderr, "No results found. Note that only string queries are currently supported.")
+			return nil
+		}
+		for _, s := range list {
+			fmt.Println(s)
+		}
 		return nil
 	}
 

@@ -353,3 +353,80 @@ func AddRelationship(cid, relType, relationType, relCid string) error {
 	}
 	return nil
 }
+
+// IndexMatchQuery queries the AA index for any CIDs with the provided attribute-value pair.
+// See the API docs for more information:
+// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#get-i
+func IndexMatchQuery(attr, val, valType string) ([]string, error) {
+	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/i")
+	if err != nil {
+		return nil, err
+	}
+
+	q := url.Query()
+	q.Add("query", "match")
+	q.Add("key", attr)
+	q.Add("val", val)
+	q.Add("type", valType)
+	url.RawQuery = q.Encode()
+
+	resp, err := client.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad status code in response: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var cids []string
+	err = dagCborDecMode.Unmarshal(data, &cids)
+	if err != nil {
+		return nil, err
+	}
+	return cids, nil
+}
+
+// IndexListQuery queries the AA index for any values that have been indexed for the
+// given attribute.
+func IndexListQuery(attr string) ([]string, error) {
+	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/i")
+	if err != nil {
+		return nil, err
+	}
+
+	q := url.Query()
+	q.Add("query", "list")
+	q.Add("key", attr)
+	url.RawQuery = q.Encode()
+
+	resp, err := client.Get(url.String())
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad status code in response: %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var vals []string
+	err = dagCborDecMode.Unmarshal(data, &vals)
+	if err != nil {
+		return nil, err
+	}
+	return vals, nil
+}
