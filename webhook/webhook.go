@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,7 +31,7 @@ func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
 	w.WriteHeader(httpStatus)
 	_, err = w.Write(jsonData)
 	if err != nil {
-		fmt.Println("Failed to write response:", err)
+		log.Println("failed to write response:", err)
 	}
 }
 
@@ -175,13 +176,13 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 
 	attributes, err := ParseMapToAttributes(cid, metadataMap, fileAttributes)
 	if err != nil {
-		fmt.Println("Error parsing attributes:", err)
+		log.Println("error parsing attributes:", err)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	err = aa.SetAttestations(cid, true, attributes)
 	if err != nil {
-		fmt.Println("Error setting attestations:", err)
+		log.Println("error setting attestations:", err)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
@@ -209,9 +210,9 @@ func Run(args []string) error {
 
 	host := config.GetConfig().Webhook.Host
 	if host == "" {
-		return fmt.Errorf("Webhook host not set in config")
+		return fmt.Errorf("webhook host not set in config")
 	}
-	fmt.Println("Webhook server running on", host)
+	log.Println("webhook server running on", host)
 	err := http.ListenAndServe(host, r)
 	return err
 }
