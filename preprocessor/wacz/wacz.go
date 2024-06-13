@@ -2,7 +2,9 @@ package util
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -14,8 +16,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"slices"
+	"strings"
 	"time"
 
 	"path/filepath"
@@ -65,6 +69,7 @@ type waczPackageData struct {
 type WaczFileData struct {
 	DigestData  *waczDigestData
 	PackageData *waczPackageData
+	UserAgent   string
 }
 
 // https://github.com/webrecorder/authsign/blob/main/authsign/trusted/roots.yaml
@@ -77,6 +82,36 @@ var trustedDomainFingerprints = []string{
 var trustedTimestampFingerprints = []string{
 	// freetsa.org Root CA (self-signed)
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
+}
+
+// findUserAgent finds the user agent string in the data.warc.gz file.
+func findUserAgent(fileMap map[string]*zip.File) (string, error) {
+	if fileMap["archive/data.warc.gz"] == nil {
+		return "", fmt.Errorf("missing data.warc.gz")
+	}
+	file, err := fileMap["archive/data.warc.gz"].Open()
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	fz, err := gzip.NewReader(file)
+	if err != nil {
+		return "", err
+	}
+	defer fz.Close()
+
+	scanner := bufio.NewScanner(fz)
+	for scanner.Scan() {
+		text := scanner.Text()
+		if strings.Contains(text, "user-agent: ") {
+			return strings.TrimPrefix(text, "user-agent: "), nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("user-agent not found")
 }
 
 // verifyFileHashes verifies the hash of files listed in the package data.
@@ -399,8 +434,14 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		return nil, fmt.Errorf("signature verification failed")
 	}
 
+	userAgent, err := findUserAgent(fileMap)
+	if err != nil {
+		log.Printf("failed to find user agent in data.warc.gz: %v", err)
+	}
+
 	return &WaczFileData{
 		DigestData:  &digestData,
 		PackageData: &packageData,
+		UserAgent:   userAgent,
 	}, nil
 }

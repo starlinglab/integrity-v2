@@ -102,6 +102,7 @@ func getWaczFileMetadata(filePath string) (map[string]any, error) {
 		"asset_origin_id":   getAssetOriginRoot(filePath),
 		"media_type":        mediaType,
 		"asset_origin_type": []string{"wacz"},
+		"crawl_user_agent":  metadata.UserAgent,
 		"wacz":              wacz,
 	}
 	return waczMetadata, nil
