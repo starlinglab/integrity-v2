@@ -1,10 +1,12 @@
 package upload
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/config"
@@ -41,11 +43,29 @@ func rcloneHasRemote(name string) (bool, string, error) {
 func uploadRclone(remote, remoteType, remotePath string, cidPaths []string) error {
 	for i, cidPath := range cidPaths {
 		fmt.Printf("Uploading %d of %d...\n", i+1, len(cidPaths))
-		cmd := exec.Command(
+
+		cmdCtx, cancel := context.WithCancel(context.Background())
+		cmd := exec.CommandContext(
+			cmdCtx,
 			config.GetConfig().Bins.Rclone,
 			"copy", cidPath, remote+":"+remotePath,
 			"--quiet",
 		)
+
+		// Stop command if main Go process is cancelled
+		sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		go func() {
+			<-sigCtx.Done()
+			stop()
+			if cmd.ProcessState != nil {
+				return
+			}
+			cancel()
+			os.Exit(1)
+		}()
+
+		defer stop()
+
 		rcloneOutput, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\n%s\n", rcloneOutput)

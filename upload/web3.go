@@ -1,10 +1,12 @@
 package upload
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/config"
@@ -78,7 +80,23 @@ func uploadWeb3(space string, cidPaths []string) error {
 			tmpF.Close() // Flush for w3
 
 			// Now upload that CAR file
-			cmd = exec.Command(conf.Bins.W3, "up", "--car", tmpF.Name())
+
+			cmdCtx, cancel := context.WithCancel(context.Background())
+			cmd = exec.CommandContext(cmdCtx, conf.Bins.W3, "up", "--car", tmpF.Name())
+
+			// Stop command if main Go process is cancelled
+			sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+			go func() {
+				<-sigCtx.Done()
+				stop()
+				if cmd.ProcessState != nil {
+					return
+				}
+				cancel()
+				os.Exit(1)
+			}()
+			defer stop()
+
 			output, err = cmd.CombinedOutput()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "\n%s\n", output)
