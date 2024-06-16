@@ -85,31 +85,47 @@ var trustedTimestampFingerprints = []string{
 }
 
 // findUserAgent finds the user agent string in the data.warc.gz file.
-func findUserAgent(fileMap map[string]*zip.File) (string, error) {
-	if fileMap["archive/data.warc.gz"] == nil {
-		return "", fmt.Errorf("missing data.warc.gz")
+func findUserAgent(packageData waczPackageData, fileMap map[string]*zip.File) (string, error) {
+	var targetFile string
+	for _, resource := range packageData.Resources {
+		if strings.HasPrefix(resource.Path, "archive/") && (strings.HasSuffix(resource.Path, ".warc") || strings.HasSuffix(resource.Path, ".warc.gz")) {
+			targetFile = resource.Path
+			break
+		}
 	}
-	file, err := fileMap["archive/data.warc.gz"].Open()
+
+	if targetFile == "" || fileMap[targetFile] == nil {
+		return "", fmt.Errorf("missing warc files")
+	}
+
+	file, err := fileMap[targetFile].Open()
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	fz, err := gzip.NewReader(file)
-	if err != nil {
-		return "", err
-	}
-	defer fz.Close()
-
-	scanner := bufio.NewScanner(fz)
-	for scanner.Scan() {
-		text := scanner.Text()
-		if strings.Contains(text, "user-agent: ") {
-			return strings.TrimPrefix(text, "user-agent: "), nil
+	if strings.HasSuffix(targetFile, ".gz") {
+		file, err = gzip.NewReader(file)
+		if err != nil {
+			return "", err
 		}
+		defer file.Close()
 	}
-	if err := scanner.Err(); err != nil {
-		return "", err
+
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			if err != bufio.ErrBufferFull {
+				return "", err
+			}
+		}
+		if strings.Contains(line, "user-agent: ") || strings.Contains(line, "User-Agent: ") {
+			return line[strings.Index(line, ":")+2:], nil
+		}
 	}
 	return "", fmt.Errorf("user-agent not found")
 }
@@ -291,13 +307,12 @@ func verifyDomainSignature(
 		return false, err
 	}
 
-	if timestampCert.NotBefore.Before(signatureCreated) || timestampCert.NotAfter.After(signatureCreated) {
+	if signatureCreated.Before(timestampCert.NotBefore) || signatureCreated.After(timestampCert.NotAfter) {
 		return false, fmt.Errorf("timestamp cert not valid at creation time")
 	}
 
 	if signatureCreated.Sub(*signTime).Abs() > 10*time.Minute {
 		return false, fmt.Errorf("timestamp too far from signature creation time")
-
 	}
 
 	return true, nil
@@ -434,7 +449,7 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		return nil, fmt.Errorf("signature verification failed")
 	}
 
-	userAgent, err := findUserAgent(fileMap)
+	userAgent, err := findUserAgent(packageData, fileMap)
 	if err != nil {
 		log.Printf("failed to find user agent in data.warc.gz: %v", err)
 	}
