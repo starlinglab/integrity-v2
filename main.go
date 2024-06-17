@@ -23,7 +23,15 @@ import (
 
 // Main file for all-in-one build
 
-var helpText = "TODO help text"
+var helpText = `This binary contains all the CLI tools and services in one.
+Call the tool as a subcommand, with any flags you need. For example:
+
+    $ integrity-v2 attr get --cid ...
+
+CLI tools are listed online: https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
+
+Other than that, services are included: preprocessor-folder and webhook.
+And finally, the version or --version command will display the build version.`
 
 func run(cmd string, args []string) (bool, error) {
 	var err error
