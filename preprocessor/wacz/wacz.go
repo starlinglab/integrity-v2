@@ -2,7 +2,9 @@ package util
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
+	"compress/gzip"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -14,8 +16,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"slices"
+	"strings"
 	"time"
 
 	"path/filepath"
@@ -65,6 +69,7 @@ type waczPackageData struct {
 type WaczFileData struct {
 	DigestData  *waczDigestData
 	PackageData *waczPackageData
+	UserAgent   string
 }
 
 // https://github.com/webrecorder/authsign/blob/main/authsign/trusted/roots.yaml
@@ -77,6 +82,63 @@ var trustedDomainFingerprints = []string{
 var trustedTimestampFingerprints = []string{
 	// freetsa.org Root CA (self-signed)
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
+}
+
+// findUserAgent finds the user agent string in the data.warc.gz file.
+func findUserAgent(packageData waczPackageData, fileMap map[string]*zip.File) (string, error) {
+	var targetFile string
+	for _, resource := range packageData.Resources {
+		if strings.HasPrefix(resource.Path, "archive/") && (strings.HasSuffix(resource.Path, ".warc") || strings.HasSuffix(resource.Path, ".warc.gz")) {
+			targetFile = resource.Path
+			break
+		}
+	}
+
+	if targetFile == "" || fileMap[targetFile] == nil {
+		return "", fmt.Errorf("missing warc files")
+	}
+
+	file, err := fileMap[targetFile].Open()
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if strings.HasSuffix(targetFile, ".gz") {
+		file, err = gzip.NewReader(file)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+	}
+
+	reader := bufio.NewReader(file)
+	for {
+		lineBytes, isPrefix, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+		if isPrefix {
+			// discard the rest of the long line
+			for isPrefix {
+				_, isPrefix, err = reader.ReadLine()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return "", err
+				}
+			}
+		}
+		line := string(lineBytes)
+		if strings.Contains(line, "user-agent: ") || strings.Contains(line, "User-Agent: ") {
+			return line[strings.Index(line, ":")+2:], nil
+		}
+	}
+	return "", fmt.Errorf("user-agent not found")
 }
 
 // verifyFileHashes verifies the hash of files listed in the package data.
@@ -262,7 +324,6 @@ func verifyDomainSignature(
 
 	if signatureCreated.Sub(*signTime).Abs() > 10*time.Minute {
 		return false, fmt.Errorf("timestamp too far from signature creation time")
-
 	}
 
 	return true, nil
@@ -399,8 +460,14 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		return nil, fmt.Errorf("signature verification failed")
 	}
 
+	userAgent, err := findUserAgent(packageData, fileMap)
+	if err != nil {
+		log.Printf("failed to find user agent in data.warc.gz: %v", err)
+	}
+
 	return &WaczFileData{
 		DigestData:  &digestData,
 		PackageData: &packageData,
+		UserAgent:   userAgent,
 	}, nil
 }
