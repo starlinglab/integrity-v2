@@ -114,15 +114,26 @@ func findUserAgent(packageData waczPackageData, fileMap map[string]*zip.File) (s
 
 	reader := bufio.NewReader(file)
 	for {
-		line, err := reader.ReadString('\n')
+		lineBytes, isPrefix, err := reader.ReadLine()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			if err != bufio.ErrBufferFull {
-				return "", err
+			return "", err
+		}
+		if isPrefix {
+			// discard the rest of the long line
+			for isPrefix {
+				_, isPrefix, err = reader.ReadLine()
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return "", err
+				}
 			}
 		}
+		line := string(lineBytes)
 		if strings.Contains(line, "user-agent: ") || strings.Contains(line, "User-Agent: ") {
 			return line[strings.Index(line, ":")+2:], nil
 		}
