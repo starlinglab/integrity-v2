@@ -21,6 +21,8 @@ var (
 	index       bool
 )
 
+var miniHelp = "\nsupported invocations:\n\tattr get ...\n\tattr set ...\n\n"
+
 func Run(args []string) error {
 	fs := flag.NewFlagSet("attr", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
@@ -33,12 +35,14 @@ func Run(args []string) error {
 
 	if len(args) == 0 {
 		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide subcommand like 'get' or 'set'")
+		fmt.Fprintf(os.Stderr, miniHelp)
+		return fmt.Errorf("provide subcommand like 'get' or 'set'")
 	}
 	cmd := args[0]
 	if cmd != "set" && cmd != "get" {
 		fs.PrintDefaults()
-		return fmt.Errorf("\nsupported subcommands are: get, set")
+		fmt.Fprintf(os.Stderr, miniHelp)
+		return fmt.Errorf("supported subcommands are: get, set")
 	}
 
 	err := fs.Parse(args[1:])
