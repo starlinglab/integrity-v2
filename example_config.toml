@@ -43,3 +43,7 @@ sign_cert = "/path/to/c2pa/cert.pem"
 token = "MY_AUTH_TOKEN"
 nft_contract_address = "0xabc" # Optional
 
+[browsertrix]
+# app.browsertrix.com
+user = "user"
+password = "password"
