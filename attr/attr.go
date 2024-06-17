@@ -35,13 +35,13 @@ func Run(args []string) error {
 
 	if len(args) == 0 {
 		fs.PrintDefaults()
-		fmt.Fprintf(os.Stderr, miniHelp)
+		fmt.Fprint(os.Stderr, miniHelp)
 		return fmt.Errorf("provide subcommand like 'get' or 'set'")
 	}
 	cmd := args[0]
 	if cmd != "set" && cmd != "get" {
 		fs.PrintDefaults()
-		fmt.Fprintf(os.Stderr, miniHelp)
+		fmt.Fprint(os.Stderr, miniHelp)
 		return fmt.Errorf("supported subcommands are: get, set")
 	}
 
