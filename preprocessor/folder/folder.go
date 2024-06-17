@@ -24,7 +24,7 @@ func findProjectWithFilePath(filePath string, projects []*ProjectQueryResult) *P
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	for _, project := range projects {
 		projectPath := project.ProjectPath
-		projectPath = filepath.Join(syncRoot, projectPath)
+		projectPath = filepath.Join(syncRoot, projectPath) + "/"
 		if strings.HasPrefix(filePath, projectPath) {
 			return project
 		}
