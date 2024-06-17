@@ -38,6 +38,9 @@ func scanSyncDirectory(subPath string) (fileList []string, err error) {
 		if err != nil {
 			return err
 		}
+		if info.IsDir() {
+			return nil
+		}
 		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
 			return nil
@@ -96,8 +99,12 @@ func Run(args []string) error {
 		if event == notify.Rename || event == notify.Create {
 			go func() {
 				filePath := ei.Path()
+				fileInfo, err := os.Stat(filePath)
 				if err != nil {
 					log.Println("error getting file info:", err)
+					return
+				}
+				if fileInfo.IsDir() {
 					return
 				}
 				if shouldIncludeFile(filepath.Base(filePath)) {
