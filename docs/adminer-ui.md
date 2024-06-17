@@ -6,7 +6,7 @@
 
 ### Docker
 
-Run the [official Docker image](https://hub.docker.com/_/adminer), which contains its own PHP runtime and requires no additional setup. By default, the instance is hosted at `http://localhost:8080`. You can use a different port by using Docker port mapping, e.g., `$ docker run -p 3000:8080 adminer`.
+See [docker-compose.yml](/docker-compose.yml).
 
 ### PHP
 
