@@ -256,7 +256,7 @@ func verifyDomainSignature(
 		return false, err
 	}
 
-	if timestampCert.NotBefore.Before(signatureCreated) || timestampCert.NotAfter.After(signatureCreated) {
+	if signatureCreated.Before(timestampCert.NotBefore) || signatureCreated.After(timestampCert.NotAfter) {
 		return false, fmt.Errorf("timestamp cert not valid at creation time")
 	}
 
