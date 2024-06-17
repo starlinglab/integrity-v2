@@ -6,11 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/rjeczalik/notify"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/database"
 )
+
+type Projects struct {
+	mu   sync.RWMutex
+	list []*ProjectQueryResult
+}
 
 // findProjectWithFilePath finds the project
 // in which ProjectPath is the parent directory of the given file path
@@ -62,13 +68,14 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-
-	projects, err := queryAllProjects(pgPool)
+	var projects Projects
+	list, err := queryAllProjects(pgPool)
 	if err != nil {
 		return err
 	}
+	projects.list = list
 
-	for _, project := range projects {
+	for _, project := range projects.list {
 		projectPath := project.ProjectPath
 		fileList, err := scanSyncDirectory(projectPath)
 		if err != nil {
@@ -108,10 +115,25 @@ func Run(args []string) error {
 					return
 				}
 				if shouldIncludeFile(filepath.Base(filePath)) {
-					project := findProjectWithFilePath(filePath, projects)
+					projects.mu.RLock()
+					project := findProjectWithFilePath(filePath, projects.list)
+					projects.mu.RUnlock()
 					if project == nil {
-						log.Printf("no project found for file %s\n", filePath)
-						return
+						list, err = queryAllProjects(pgPool)
+						if err != nil {
+							log.Println(err)
+						} else {
+							projects.mu.Lock()
+							projects.list = list
+							projects.mu.Unlock()
+							projects.mu.RLock()
+							project = findProjectWithFilePath(filePath, projects.list)
+							projects.mu.RUnlock()
+							if project == nil {
+								log.Printf("no project found for file %s\n", filePath)
+								return
+							}
+						}
 					}
 					cid, err := handleNewFile(pgPool, filePath, project)
 					if err != nil {
