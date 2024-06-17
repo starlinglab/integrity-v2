@@ -308,7 +308,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 				}
 				cid = resp.Cid
 			} else {
-				if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
+				if err := setFileStatusError(pgPool, filePath, "Invalid proofmode file"); err != nil {
 					log.Println("error setting file status to error:", err)
 				}
 				return "", fmt.Errorf("file %s not found in zip", fileName)
