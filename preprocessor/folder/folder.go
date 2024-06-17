@@ -6,11 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/rjeczalik/notify"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/database"
 )
+
+type Projects struct {
+	mu   sync.RWMutex
+	list []*ProjectQueryResult
+}
 
 // findProjectWithFilePath finds the project
 // in which ProjectPath is the parent directory of the given file path
@@ -18,7 +24,7 @@ func findProjectWithFilePath(filePath string, projects []*ProjectQueryResult) *P
 	syncRoot := config.GetConfig().FolderPreprocessor.SyncFolderRoot
 	for _, project := range projects {
 		projectPath := project.ProjectPath
-		projectPath = filepath.Join(syncRoot, projectPath)
+		projectPath = filepath.Join(syncRoot, projectPath) + "/"
 		if strings.HasPrefix(filePath, projectPath) {
 			return project
 		}
@@ -37,6 +43,9 @@ func scanSyncDirectory(subPath string) (fileList []string, err error) {
 	err = filepath.WalkDir(scanPath, func(path string, info os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if info.IsDir() {
+			return nil
 		}
 		if shouldIncludeFile(info.Name()) {
 			fileList = append(fileList, path)
@@ -59,13 +68,14 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
-
-	projects, err := queryAllProjects(pgPool)
+	var projects Projects
+	list, err := queryAllProjects(pgPool)
 	if err != nil {
 		return err
 	}
+	projects.list = list
 
-	for _, project := range projects {
+	for _, project := range projects.list {
 		projectPath := project.ProjectPath
 		fileList, err := scanSyncDirectory(projectPath)
 		if err != nil {
@@ -96,15 +106,34 @@ func Run(args []string) error {
 		if event == notify.Rename || event == notify.Create {
 			go func() {
 				filePath := ei.Path()
+				fileInfo, err := os.Stat(filePath)
 				if err != nil {
 					log.Println("error getting file info:", err)
 					return
 				}
+				if fileInfo.IsDir() {
+					return
+				}
 				if shouldIncludeFile(filepath.Base(filePath)) {
-					project := findProjectWithFilePath(filePath, projects)
+					projects.mu.RLock()
+					project := findProjectWithFilePath(filePath, projects.list)
+					projects.mu.RUnlock()
 					if project == nil {
-						log.Printf("no project found for file %s\n", filePath)
-						return
+						list, err = queryAllProjects(pgPool)
+						if err != nil {
+							log.Println(err)
+						} else {
+							projects.mu.Lock()
+							projects.list = list
+							projects.mu.Unlock()
+							projects.mu.RLock()
+							project = findProjectWithFilePath(filePath, projects.list)
+							projects.mu.RUnlock()
+							if project == nil {
+								log.Printf("no project found for file %s\n", filePath)
+								return
+							}
+						}
 					}
 					cid, err := handleNewFile(pgPool, filePath, project)
 					if err != nil {
