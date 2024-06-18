@@ -14,4 +14,4 @@ build tool:
     @go build -ldflags="{{ldflags}}" -o build/$1 ./$1/cmd
 
 clean:
-    @rm -f build/*
+    @rm -rf build/*
