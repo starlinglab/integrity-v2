@@ -76,6 +76,7 @@ type WaczFileData struct {
 var trustedDomainFingerprints = []string{
 	// Lets Encrypt Root CA X1
 	"67add1166b020ae61b8f5fc96813c04c2aa589960796865572a3c7e737613dfd",
+	"5dfdb3cf31b26f23d87c09f3a0cef642f64069a9fb7cfe29270bb5dc0f1e16bb",
 	// Lets Encrypt Root CA X3
 	"6d99fb265eb1c5b3744765fcbc648f3cd8e1bffafdc4c2f99b9d47cf7ff1c24f",
 }
