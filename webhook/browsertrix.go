@@ -224,6 +224,18 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if fileAttributes["sha256"] != e.Resources[0].Hash {
+		log.Printf("Hash mismatch: %s != %s", fileAttributes["sha256"], e.Resources[0].Hash)
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "hash mismatch"})
+		return
+	}
+
+	if int(fileAttributes["file_size"].(int64)) != e.Resources[0].Size {
+		log.Printf("Size mismatch: %d != %d", fileAttributes["file_size"], e.Resources[0].Size)
+		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "size mismatch"})
+		return
+	}
+
 	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err.Error())
