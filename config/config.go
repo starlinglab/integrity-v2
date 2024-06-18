@@ -47,8 +47,9 @@ type Config struct {
 		NftContractAddress string `toml:"nft_contract_address"`
 	} `toml:"numbers"`
 	Browsertrix struct {
-		User     string `toml:"user"`
-		Password string `toml:"password"`
+		User          string `toml:"user"`
+		Password      string `toml:"password"`
+		WebhookSecret string `toml:"webhook_secret"`
 	} `toml:"browsertrix"`
 }
 

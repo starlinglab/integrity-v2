@@ -47,3 +47,4 @@ nft_contract_address = "0xabc" # Optional
 # app.browsertrix.com
 user = "user"
 password = "password"
+webhook_secret = "random_string" # A random string defined by us for auth in qs

@@ -138,6 +138,12 @@ type CrawlMetadata struct {
 }
 
 func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
+	webhookSecret := r.URL.Query().Get("s")
+	if webhookSecret != config.GetConfig().Browsertrix.WebhookSecret {
+		writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "invalid secret"})
+		return
+	}
+
 	var e BrowsertrixCrawlFinishedResponse
 	defer r.Body.Close()
 	data, err := io.ReadAll(r.Body)
