@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	urlpkg "net/url"
@@ -56,9 +57,16 @@ func getJWTToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to login: %s", resp.Status)
+	}
 	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
 	var value LoginResponse
-	err = json.NewDecoder(resp.Body).Decode(&value)
+	err = json.Unmarshal(data, &value)
 	if err != nil {
 		return "", err
 	}
@@ -108,9 +116,16 @@ func getCrawlInfo(orgId, crawlId string) (*CrawlInfoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get crawl info: %s", resp.Status)
+	}
 	defer resp.Body.Close()
 	var value CrawlInfoResponse
-	err = json.NewDecoder(resp.Body).Decode(&value)
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &value)
 	if err != nil {
 		return nil, err
 	}
@@ -124,14 +139,20 @@ type CrawlMetadata struct {
 
 func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	var e BrowsertrixCrawlFinishedResponse
-	err := json.NewDecoder(r.Body).Decode(&e)
+	defer r.Body.Close()
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	err = json.Unmarshal(data, &e)
 	if err != nil {
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 	if e.Event != "crawlFinished" {
 		log.Printf("Received event %s, ignoring", e.Event)
-		writeJsonResponse(w, http.StatusOK, map[string]string{})
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	if e.Resources == nil || len(e.Resources) == 0 {
@@ -232,5 +253,5 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJsonResponse(w, http.StatusOK, map[string]string{"cid": cid})
+	w.WriteHeader(http.StatusOK)
 }
