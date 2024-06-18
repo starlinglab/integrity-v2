@@ -21,6 +21,7 @@ var (
 	chain   string
 	include string
 	testnet bool
+	dryRun  bool
 )
 
 func Run(args []string) error {
@@ -29,6 +30,7 @@ func Run(args []string) error {
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register")
 	fs.BoolVar(&testnet, "test", false, "Register on a test network (if supported)")
+	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -105,6 +107,16 @@ func Run(args []string) error {
 	requestData["headline"], err = getAttValue(cid, "name")
 	if err != nil && !errors.Is(err, aa.ErrNotFound) {
 		return err
+	}
+
+	if dryRun {
+		j, err := json.MarshalIndent(requestData, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal request JSON: %w", err)
+		}
+		os.Stdout.Write(j)
+		fmt.Println()
+		return nil
 	}
 
 	requestBytes, err := json.Marshal(requestData)

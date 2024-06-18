@@ -21,12 +21,14 @@ import (
 var (
 	cid          string
 	manifestName string
+	dryRun       bool
 )
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("inject-c2pa", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&manifestName, "manifest", "", "name of the C2PA manifest template")
+	fs.BoolVar(&dryRun, "dry-run", false, "show manifest without injecting any files")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -76,6 +78,16 @@ func Run(args []string) error {
 		if err != nil {
 			return fmt.Errorf("error replacing credential values in manifest: %w", err)
 		}
+	}
+
+	if dryRun {
+		j, err := json.MarshalIndent(manifestTmpl, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error encoding replaced manifest JSON: %w", err)
+		}
+		os.Stdout.Write(j)
+		fmt.Println()
+		return nil
 	}
 
 	manifestJson, err := json.Marshal(manifestTmpl)
