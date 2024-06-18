@@ -14,6 +14,7 @@ import (
 var (
 	cid         string
 	attr        string
+	getAll      bool
 	strInput    string
 	jsonInput   string
 	isEncrypted bool
@@ -21,12 +22,22 @@ var (
 	index       bool
 )
 
-var miniHelp = "\nsupported invocations:\n\tattr get ...\n\tattr set ...\n\n"
+var miniHelp = `
+Supported invocations:
+    attr get ...
+    attr set ...
+
+Examples:
+    attr get --cid bafy... --attr file_name
+    attr set --cid bafy... --attr name --str "Picture of Bob"
+
+`
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("attr", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "name of attribute to get/set")
+	fs.BoolVar(&getAll, "all", false, "get all attributes instead of just one")
 	fs.StringVar(&strInput, "str", "", "string to set as value")
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get/set is encrypted")
@@ -56,7 +67,7 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide CID with --cid")
 	}
-	if attr == "" {
+	if attr == "" && !getAll {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide attribute name with --attr")
 	}
@@ -85,6 +96,10 @@ func Run(args []string) error {
 		if jsonInput != "" && index {
 			return fmt.Errorf("--index is only support for --str input currently")
 		}
+		if getAll {
+			fs.PrintDefaults()
+			return fmt.Errorf("\n--all doesn't apply to set command")
+		}
 	}
 
 	// Load attribute encryption key
@@ -106,18 +121,35 @@ func Run(args []string) error {
 	}
 
 	if cmd == "get" {
-		ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey})
-		if err == aa.ErrNeedsKey {
-			return fmt.Errorf("error attestation is encrypted, use --encrypted or --key")
+		if getAll {
+			atts, err := aa.GetAttestations(cid)
+			if err != nil {
+				return fmt.Errorf("error getting attestations: %w", err)
+			}
+			pairs := make(map[string]any, len(atts))
+			for name, att := range atts {
+				pairs[name] = att.Attestation.Value
+			}
+			b, err := json.MarshalIndent(pairs, "", "  ")
+			if err != nil {
+				return fmt.Errorf("error encoding value as JSON: %w", err)
+			}
+			os.Stdout.Write(b)
+		} else {
+			ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey})
+			if err == aa.ErrNeedsKey {
+				return fmt.Errorf("error attestation is encrypted, use --encrypted or --key")
+			}
+			if err != nil {
+				return fmt.Errorf("error getting attestation: %w", err)
+			}
+			b, err := json.MarshalIndent(ae.Attestation.Value, "", "  ")
+			if err != nil {
+				return fmt.Errorf("error encoding value as JSON: %w", err)
+			}
+			os.Stdout.Write(b)
 		}
-		if err != nil {
-			return fmt.Errorf("error getting attestation: %w", err)
-		}
-		b, err := json.MarshalIndent(ae.Attestation.Value, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error encoding value as JSON: %w", err)
-		}
-		os.Stdout.Write(b)
+
 		fmt.Fprintln(os.Stderr, "\n\nNote JSON encodings are not exact canonical representations!")
 		return nil
 	}
