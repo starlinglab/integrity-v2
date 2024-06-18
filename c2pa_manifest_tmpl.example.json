@@ -10,5 +10,6 @@
         "author": ["{{author}}"]
       }
     }
-  ]
+  ],
+  "credentials": ["{{location}}"]
 }

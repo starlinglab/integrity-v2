@@ -47,6 +47,7 @@ func Run(args []string) error {
 	conf := config.GetConfig()
 
 	// Read manifest template and replace variables in it
+
 	manifestPath := filepath.Join(conf.Dirs.C2PAManifestTmpls, manifestName+".json")
 	b, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -57,11 +58,27 @@ func Run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("error parsing manifest: %w", err)
 	}
-	manifest, err := jsonReplace(manifestTmpl)
-	if err != nil {
-		return fmt.Errorf("error replacing values in manifest: %w", err)
+
+	// Replace assertions with attributes
+	_, ok := manifestTmpl["assertions"]
+	if !ok {
+		return fmt.Errorf("'assertions' not in manifest template")
 	}
-	manifestJson, err := json.Marshal(manifest.(map[string]any))
+	manifestTmpl["assertions"], err = jsonReplace(manifestTmpl["assertions"], false)
+	if err != nil {
+		return fmt.Errorf("error replacing assertion values in manifest: %w", err)
+	}
+
+	// Replace credentials with VCs
+	_, ok = manifestTmpl["credentials"]
+	if ok {
+		manifestTmpl["credentials"], err = jsonReplace(manifestTmpl["credentials"], true)
+		if err != nil {
+			return fmt.Errorf("error replacing credential values in manifest: %w", err)
+		}
+	}
+
+	manifestJson, err := json.Marshal(manifestTmpl)
 	if err != nil {
 		return fmt.Errorf("error encoding replaced manifest JSON: %w", err)
 	}
@@ -207,7 +224,11 @@ func Run(args []string) error {
 	return nil
 }
 
-func jsonReplace(v any) (any, error) {
+// jsonReplace recursively replaces {{vars}} in JSON with attributes or VCs.
+// Types are changed as needed.
+//
+// Set vc to true to replace with VCs, false to replace with attributes.
+func jsonReplace(v any, useVC bool) (any, error) {
 	// Takes in a value and returns a modified one with all {{vars}} replaced
 	switch vv := v.(type) {
 
@@ -215,17 +236,25 @@ func jsonReplace(v any) (any, error) {
 		if !strings.HasPrefix(vv, "{{") || !strings.HasSuffix(vv, "}}") {
 			return v, nil
 		}
-		ae, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", vv, err)
+		if useVC {
+			vc, err := getVC(cid, vv[2:len(vv)-2])
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", vv, err)
+			}
+			return vc, nil
+		} else {
+			ae, err := aa.GetAttestation(cid, vv[2:len(vv)-2], aa.GetAttOpts{})
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", vv, err)
+			}
+			return ae.Attestation.Value, nil
 		}
-		return ae.Attestation.Value, nil
 
 	case []any:
 		// Search and replace through each slice value
 		for i, sv := range vv {
 			var err error
-			vv[i], err = jsonReplace(sv)
+			vv[i], err = jsonReplace(sv, useVC)
 			if err != nil {
 				return nil, err
 			}
@@ -235,7 +264,7 @@ func jsonReplace(v any) (any, error) {
 		// Search and replace through each map value
 		for k, mv := range vv {
 			var err error
-			vv[k], err = jsonReplace(mv)
+			vv[k], err = jsonReplace(mv, useVC)
 			if err != nil {
 				return nil, err
 			}
@@ -247,6 +276,22 @@ func jsonReplace(v any) (any, error) {
 	}
 
 	return v, nil
+}
+
+func getVC(cid, attr string) (any, error) {
+	data, err := aa.GetAttestationRaw(cid, attr, aa.GetAttOpts{
+		LeaveEncrypted: true,
+		Format:         "vc",
+	})
+	if err != nil {
+		return nil, err
+	}
+	var vc any
+	err = json.Unmarshal(data, &vc)
+	if err != nil {
+		return nil, err
+	}
+	return vc, nil
 }
 
 // c2paExport is used by AA in an array under the c2pa_exports key

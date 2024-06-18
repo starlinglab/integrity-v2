@@ -26,7 +26,7 @@ var (
 type GetAttOpts struct {
 	EncKey         []byte
 	LeaveEncrypted bool
-	Format         string
+	Format         string // "cbor", "vc", or "" (cbor)
 }
 
 // Attestation as stored in the database in DAG-CBOR.
