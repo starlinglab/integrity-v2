@@ -1,12 +1,12 @@
 package webhook
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	urlpkg "net/url"
 	"os"
 	"path/filepath"
@@ -59,17 +59,14 @@ func getJWTToken() (string, error) {
 	}
 	browsertrixJwtMutex.Lock()
 	defer browsertrixJwtMutex.Unlock()
-	b, err := json.Marshal(map[string]string{
-		"username": config.GetConfig().Browsertrix.User,
-		"password": config.GetConfig().Browsertrix.Password,
-	})
+	payload := url.Values{}
+	payload.Set("username", config.GetConfig().Browsertrix.User)
+	payload.Set("password", config.GetConfig().Browsertrix.Password)
+	req, err := http.NewRequest("POST", "https://app.browsertrix.com/api/auth/jwt/login", strings.NewReader(payload.Encode()))
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest("POST", "https://app.browsertrix.com/api/auth/jwt/login", bytes.NewReader(b))
-	if err != nil {
-		return "", err
-	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -88,22 +85,21 @@ func getJWTToken() (string, error) {
 		return "", err
 	}
 	browsertrixJwtToken = value.AccessToken
-	browsertrixJwtMutex.Unlock()
 	return browsertrixJwtToken, nil
 }
 
 type CrawlInfoResponse struct {
-	ID          string    `json:"id"`
-	Type        string    `json:"type"`
-	Userid      string    `json:"userid"`
-	UserName    string    `json:"userName"`
-	Oid         string    `json:"oid"`
-	Profileid   string    `json:"profileid"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Started     time.Time `json:"started"`
-	Finished    time.Time `json:"finished"`
-	State       string    `json:"state"`
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	Userid      string `json:"userid"`
+	UserName    string `json:"userName"`
+	Oid         string `json:"oid"`
+	Profileid   string `json:"profileid"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Started     string `json:"started"`
+	Finished    string `json:"finished"`
+	State       string `json:"state"`
 	Stats       struct {
 		Found int `json:"found"`
 		Done  int `json:"done"`
