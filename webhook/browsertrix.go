@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
@@ -41,7 +43,22 @@ type LoginResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
+var browsertrixJwtMutex = &sync.RWMutex{}
+var browsertrixJwtToken string
+
 func getJWTToken() (string, error) {
+	browsertrixJwtMutex.RLock()
+	if browsertrixJwtToken != "" {
+		token, err := jwt.Parse([]byte(browsertrixJwtToken))
+		browsertrixJwtMutex.RUnlock()
+		if err == nil && token.Expiration().After(time.Now()) {
+			return browsertrixJwtToken, nil
+		}
+	} else {
+		browsertrixJwtMutex.RUnlock()
+	}
+	browsertrixJwtMutex.Lock()
+	defer browsertrixJwtMutex.Unlock()
 	b, err := json.Marshal(map[string]string{
 		"username": config.GetConfig().Browsertrix.User,
 		"password": config.GetConfig().Browsertrix.Password,
@@ -70,7 +87,9 @@ func getJWTToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return value.AccessToken, nil
+	browsertrixJwtToken = value.AccessToken
+	browsertrixJwtMutex.Unlock()
+	return browsertrixJwtToken, nil
 }
 
 type CrawlInfoResponse struct {
