@@ -81,11 +81,11 @@ func GuessMediaType(path string) (string, error) {
 	}
 	defer f.Close()
 	header := make([]byte, 512)
-	_, err = io.ReadFull(f, header)
+	n, err := f.Read(header)
 	if err != nil {
 		return "", fmt.Errorf("error reading CID file: %w", err)
 	}
-	return http.DetectContentType(header), nil
+	return http.DetectContentType(header[:n]), nil
 }
 
 func TempDir() string {
