@@ -315,6 +315,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			}
 		}
 	case "wacz":
+		fallthrough
 	case "generic":
 		file, err := os.Open(filePath)
 		if err != nil {
