@@ -29,7 +29,7 @@ type BrowsertrixCrawlFinishedResponse struct {
 		Path        string `json:"path"`
 		Hash        string `json:"hash"`
 		Crc32       int    `json:"crc32"`
-		Size        int    `json:"size"`
+		Size        int64  `json:"size"`
 		CrawlID     string `json:"crawlId"`
 		NumReplicas int    `json:"numReplicas"`
 		ExpireAt    string `json:"expireAt"`
@@ -251,7 +251,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if int(fileAttributes["file_size"].(int64)) != e.Resources[0].Size {
+	if fileAttributes["file_size"].(int64) != e.Resources[0].Size {
 		log.Printf("Size mismatch: %d != %d", fileAttributes["file_size"], e.Resources[0].Size)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "size mismatch"})
 		return
