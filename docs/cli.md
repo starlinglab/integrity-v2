@@ -18,3 +18,7 @@ Depending on how the binary is built, each CLI tool can either be called by runn
 - `register`: register a file with a third-party blockchain
 - `search`: search attestations, CIDs, and the index
 - `upload`: upload a file to a third-party storage provider
+
+## Demo
+
+[![asciicast](https://asciinema.org/a/vFtmerhaiwa0P768d9dYPGTnM.svg)](https://asciinema.org/a/vFtmerhaiwa0P768d9dYPGTnM)
