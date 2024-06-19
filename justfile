@@ -7,11 +7,13 @@ prod := "0"
 ldflags := if prod == "1" { "-s -w" } else { "" }
 
 standalone:
+    @mkdir -p build
     @go build -ldflags="{{ldflags}}" -o build/integrity-v2
 
 build tool:
-    @rm -f build/$1
+    @mkdir -p build
     @go build -ldflags="{{ldflags}}" -o build/$1 ./$1/cmd
 
+# Remove binaries but not any custom made directories or whatever
 clean:
-    @rm -rf build/*
+    @find build -maxdepth 1 -type f -delete
