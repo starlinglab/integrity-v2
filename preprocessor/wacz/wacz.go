@@ -72,13 +72,6 @@ type WaczFileData struct {
 	UserAgent   string
 }
 
-// https://github.com/webrecorder/authsign/blob/main/authsign/trusted/roots.yaml
-var trustedDomainFingerprints = []string{
-	// Lets Encrypt Root CA X1
-	"67add1166b020ae61b8f5fc96813c04c2aa589960796865572a3c7e737613dfd",
-	// Lets Encrypt Root CA X3
-	"6d99fb265eb1c5b3744765fcbc648f3cd8e1bffafdc4c2f99b9d47cf7ff1c24f",
-}
 var trustedTimestampFingerprints = []string{
 	// freetsa.org Root CA (self-signed)
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
@@ -253,23 +246,33 @@ func verifyCertificate(certString string, trustedFingerprints []string) (*x509.C
 
 	targetCert := certs[0]
 	rootCert := certs[len(certs)-1]
-	h := sha256.New()
-	h.Write([]byte(rootCert.Raw))
-	fingerprint := h.Sum(nil)
-	if !slices.Contains(trustedFingerprints, hex.EncodeToString(fingerprint[:])) {
-		return nil, fmt.Errorf("untrusted domain cert")
-	}
-	roots := x509.NewCertPool()
 
-	if len(certs) > 1 {
-		roots.AddCert(rootCert)
+	roots, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
 	}
+
 	intermediates := x509.NewCertPool()
 	for i := 1; i < len(certs)-1; i++ {
 		intermediates.AddCert(certs[i])
 	}
 
-	_, err := targetCert.Verify(x509.VerifyOptions{
+	if trustedFingerprints != nil {
+		h := sha256.New()
+		h.Write([]byte(rootCert.Raw))
+		fingerprint := h.Sum(nil)
+		if !slices.Contains(trustedFingerprints, hex.EncodeToString(fingerprint[:])) {
+			return nil, fmt.Errorf("untrusted domain cert")
+		}
+		// use trusted root
+		roots = x509.NewCertPool()
+		roots.AddCert(rootCert)
+	} else {
+		// use system root
+		intermediates.AddCert(rootCert)
+	}
+
+	_, err = targetCert.Verify(x509.VerifyOptions{
 		Roots:         roots,
 		Intermediates: intermediates,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsage(x509.KeyUsageDigitalSignature), x509.ExtKeyUsageTimeStamping},
@@ -293,7 +296,7 @@ func verifyDomainSignature(
 	// These verification steps are taken from the WACZ auth spec
 	// https://specs.webrecorder.net/wacz-auth/0.1.0/#domain-name-identity-timestamp-validation
 
-	domainCert, err := verifyCertificate(domainCertString, trustedDomainFingerprints)
+	domainCert, err := verifyCertificate(domainCertString, nil)
 	if err != nil {
 		return false, err
 	}
@@ -470,4 +473,43 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		PackageData: &packageData,
 		UserAgent:   userAgent,
 	}, nil
+}
+
+func GetVerifiedMetadata(filePath string) (map[string]any, error) {
+	mediaType := "application/wacz"
+	metadata, err := ReadAndVerifyWaczMetadata(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var wacz map[string]string
+	if metadata.DigestData.SignedData.PublicKey != "" {
+		wacz = map[string](string){
+			"hash":      metadata.DigestData.SignedData.Hash,
+			"signature": metadata.DigestData.SignedData.Signature,
+			"publicKey": metadata.DigestData.SignedData.PublicKey,
+			"created":   metadata.PackageData.Created.UTC().Format(time.RFC3339),
+			"software":  metadata.PackageData.Software,
+		}
+	} else {
+		wacz = map[string](string){
+			"hash":          metadata.DigestData.SignedData.Hash,
+			"signature":     metadata.DigestData.SignedData.Signature,
+			"version":       metadata.DigestData.SignedData.Version,
+			"domain":        metadata.DigestData.SignedData.Domain,
+			"domainCert":    metadata.DigestData.SignedData.DomainCert,
+			"timeSignature": metadata.DigestData.SignedData.Signature,
+			"timestampCert": metadata.DigestData.SignedData.TimestampCert,
+			"created":       metadata.PackageData.Created.UTC().Format(time.RFC3339),
+			"software":      metadata.PackageData.Software,
+		}
+	}
+	waczMetadata := map[string]any{
+		"last_modified":     metadata.PackageData.Modified,
+		"time_created":      metadata.PackageData.Created,
+		"media_type":        mediaType,
+		"asset_origin_type": []string{"wacz"},
+		"crawl_user_agent":  metadata.UserAgent,
+		"wacz":              wacz,
+	}
+	return waczMetadata, nil
 }

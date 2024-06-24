@@ -69,43 +69,12 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 }
 
 func getWaczFileMetadata(filePath string) (map[string]any, error) {
-	mediaType := "application/wacz"
-	metadata, err := wacz.ReadAndVerifyWaczMetadata(filePath)
+	metadata, err := wacz.GetVerifiedMetadata(filePath)
 	if err != nil {
 		return nil, err
 	}
-	var wacz map[string]string
-	if metadata.DigestData.SignedData.PublicKey != "" {
-		wacz = map[string](string){
-			"hash":      metadata.DigestData.SignedData.Hash,
-			"signature": metadata.DigestData.SignedData.Signature,
-			"publicKey": metadata.DigestData.SignedData.PublicKey,
-			"created":   metadata.PackageData.Created.UTC().Format(time.RFC3339),
-			"software":  metadata.PackageData.Software,
-		}
-	} else {
-		wacz = map[string](string){
-			"hash":          metadata.DigestData.SignedData.Hash,
-			"signature":     metadata.DigestData.SignedData.Signature,
-			"version":       metadata.DigestData.SignedData.Version,
-			"domain":        metadata.DigestData.SignedData.Domain,
-			"domainCert":    metadata.DigestData.SignedData.DomainCert,
-			"timeSignature": metadata.DigestData.SignedData.Signature,
-			"timestampCert": metadata.DigestData.SignedData.TimestampCert,
-			"created":       metadata.PackageData.Created.UTC().Format(time.RFC3339),
-			"software":      metadata.PackageData.Software,
-		}
-	}
-	waczMetadata := map[string]any{
-		"last_modified":     metadata.PackageData.Modified,
-		"time_created":      metadata.PackageData.Created,
-		"asset_origin_id":   getAssetOriginRoot(filePath),
-		"media_type":        mediaType,
-		"asset_origin_type": []string{"wacz"},
-		"crawl_user_agent":  metadata.UserAgent,
-		"wacz":              wacz,
-	}
-	return waczMetadata, nil
+	metadata["asset_origin_id"] = getAssetOriginRoot(filePath)
+	return metadata, nil
 }
 
 // getFileMetadata calculates and returns a map of attributes for a file

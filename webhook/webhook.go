@@ -1,9 +1,6 @@
 package webhook
 
 import (
-	"crypto/md5"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,7 +15,6 @@ import (
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
-	"lukechampine.com/blake3"
 )
 
 // Helper function to write http JSON response
@@ -119,48 +115,11 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 
 		} else if part.FormName() == "file" {
-			pr, pw := io.Pipe()
-			cidChan := make(chan string, 1)
-			errChan := make(chan error, 1)
-			go func() {
-				cid, err := util.CalculateFileCid(pr)
-				cidChan <- cid
-				errChan <- err
-			}()
-
-			sha := sha256.New()
-			md := md5.New()
-			blake := blake3.New(32, nil)
-
-			fileWriter := io.MultiWriter(tempFile, pw, sha, md, blake)
-
-			_, err = io.Copy(fileWriter, part)
+			cid, fileAttributes, err = getFileAttributesAndWriteToDest(part, tempFile)
 			defer part.Close()
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
-			}
-			err = pw.Close()
-			if err != nil {
-				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-				return
-			}
-			cid = <-cidChan
-			err = <-errChan
-			if err != nil {
-				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-				return
-			}
-			tempFileState, err := tempFile.Stat()
-			if err != nil {
-				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-				return
-			}
-			fileAttributes = map[string]any{
-				"sha256":    hex.EncodeToString(sha.Sum(nil)),
-				"md5":       hex.EncodeToString(md.Sum(nil)),
-				"blake3":    hex.EncodeToString(blake.Sum(nil)),
-				"file_size": tempFileState.Size(),
 			}
 		}
 	}
@@ -202,6 +161,7 @@ func Run(args []string) error {
 	r.Get("/ping", handlePing)
 	// r.Get("/c/{cid}", handleGetCid)
 	// r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
+	r.Post("/browsertrix", handleBrowsertrixEvent)
 	r.Route("/generic", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(jwtTokenAuth))
 		r.Use(jwtauth.Authenticator(jwtTokenAuth))

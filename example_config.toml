@@ -43,3 +43,8 @@ sign_cert = "/path/to/c2pa/cert.pem"
 token = "MY_AUTH_TOKEN"
 nft_contract_address = "0xabc" # Optional
 
+[browsertrix]
+# app.browsertrix.com
+user = "user"
+password = "password"
+webhook_secret = "random_string" # A random string defined by us for auth in qs
