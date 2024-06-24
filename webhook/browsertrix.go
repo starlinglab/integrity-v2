@@ -264,7 +264,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metadataMap["asset_origin_id"] = crawlMetadata.AssetOriginId
-	metadataMap["asset_origin_type"] = []string{"browsertrix"}
+	metadataMap["asset_origin_type"] = []string{"wacz"}
 	metadataMap["project_id"] = crawlMetadata.ProjectId
 
 	err = util.MoveFile(tempFilePath, filepath.Join(outputDirectory, cid))
