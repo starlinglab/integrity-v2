@@ -106,15 +106,16 @@ func Run(args []string) error {
 		if event == notify.Rename || event == notify.Create {
 			go func() {
 				filePath := ei.Path()
-				fileInfo, err := os.Stat(filePath)
-				if err != nil {
-					log.Println("error getting file info:", err)
-					return
-				}
-				if fileInfo.IsDir() {
-					return
-				}
 				if shouldIncludeFile(filepath.Base(filePath)) {
+					fileInfo, err := os.Stat(filePath)
+					if err != nil {
+						log.Println("error getting file info:", err)
+						return
+					}
+					if fileInfo.IsDir() {
+						return
+					}
+
 					projects.mu.RLock()
 					project := findProjectWithFilePath(filePath, projects.list)
 					projects.mu.RUnlock()

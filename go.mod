@@ -15,6 +15,7 @@ require (
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-datastore v0.6.0
 	github.com/jackc/pgx/v5 v5.5.5
+	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/multiformats/go-multicodec v0.9.0
 	github.com/openziti/secretstream v0.1.20
 	github.com/photon-storage/go-ipfs-car v0.0.0-20240530014616-17d95f03173f
@@ -107,7 +108,6 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.5 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
-	github.com/lestrrat-go/jwx/v2 v2.0.21 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
