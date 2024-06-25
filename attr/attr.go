@@ -128,7 +128,11 @@ func Run(args []string) error {
 			}
 			pairs := make(map[string]any, len(atts))
 			for name, att := range atts {
-				pairs[name] = att.Attestation.Value
+				if att.Attestation.Encrypted {
+					pairs[name] = "*ENCRYPTED*"
+				} else {
+					pairs[name] = att.Attestation.Value
+				}
 			}
 			b, err := json.MarshalIndent(pairs, "", "  ")
 			if err != nil {
