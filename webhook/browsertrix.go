@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	urlpkg "net/url"
 	"os"
 	"path/filepath"
@@ -59,7 +58,7 @@ func getJWTToken() (string, error) {
 	}
 	browsertrixJwtMutex.Lock()
 	defer browsertrixJwtMutex.Unlock()
-	payload := url.Values{}
+	payload := urlpkg.Values{}
 	payload.Set("username", config.GetConfig().Browsertrix.User)
 	payload.Set("password", config.GetConfig().Browsertrix.Password)
 	req, err := http.NewRequest("POST", "https://app.browsertrix.com/api/auth/jwt/login", strings.NewReader(payload.Encode()))

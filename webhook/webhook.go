@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,19 @@ import (
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
+
+var cborDecMode cbor.DecMode
+
+func init() {
+	var err error
+	cborDecMode, err = cbor.DecOptions{
+		// Easier to work with
+		DefaultMapType: reflect.TypeOf(map[string]any{}),
+	}.DecMode()
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Helper function to write http JSON response
 func writeJsonResponse(w http.ResponseWriter, httpStatus int, data any) {
@@ -105,7 +119,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 			switch metadataFormatType {
 			case "application/cbor":
-				err = cbor.Unmarshal(metadataValue, &metadataMap)
+				err = cborDecMode.Unmarshal(metadataValue, &metadataMap)
 			case "application/json":
 				err = json.Unmarshal(metadataValue, &metadataMap)
 			}
