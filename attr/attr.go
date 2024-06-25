@@ -5,10 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/starlinglab/integrity-v2/aa"
-	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/util"
 )
 
 var (
@@ -112,9 +111,7 @@ func Run(args []string) error {
 		}
 	} else if isEncrypted {
 		var err error
-		encKey, err = os.ReadFile(
-			filepath.Join(config.GetConfig().Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr)),
-		)
+		_, encKey, _, err = util.GenerateEncKey(cid, attr)
 		if err != nil {
 			return fmt.Errorf("error reading key: %w", err)
 		}
