@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/util"
@@ -136,6 +137,7 @@ func Run(args []string) error {
 				return fmt.Errorf("error encoding value as JSON: %w", err)
 			}
 			os.Stdout.Write(b)
+			fmt.Fprintln(os.Stderr, "\n\nThis is not an exact canonical representation.")
 		} else {
 			ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey})
 			if err == aa.ErrNeedsKey {
@@ -144,14 +146,22 @@ func Run(args []string) error {
 			if err != nil {
 				return fmt.Errorf("error getting attestation: %w", err)
 			}
-			b, err := json.MarshalIndent(ae.Attestation.Value, "", "  ")
-			if err != nil {
-				return fmt.Errorf("error encoding value as JSON: %w", err)
+
+			kind := reflect.TypeOf(ae.Attestation.Value).Kind()
+			if kind == reflect.Slice || kind == reflect.Struct || kind == reflect.Map ||
+				kind == reflect.Array {
+				// Not a simple single value
+				b, err := json.MarshalIndent(ae.Attestation.Value, "", "  ")
+				if err != nil {
+					return fmt.Errorf("error encoding value as JSON: %w", err)
+				}
+				os.Stdout.Write(b)
+				fmt.Fprintln(os.Stderr, "\n\nThis is not an exact canonical representation.")
+			} else {
+				fmt.Println(ae.Attestation.Value)
 			}
-			os.Stdout.Write(b)
 		}
 
-		fmt.Fprintln(os.Stderr, "\n\nNote JSON encodings are not exact canonical representations!")
 		return nil
 	}
 	// "set"
