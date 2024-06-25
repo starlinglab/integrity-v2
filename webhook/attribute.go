@@ -9,7 +9,7 @@ import (
 )
 
 // list of attributes that should be indexed as string
-var indexedStringKeys []string = []string{"file_name", "asset_origin_id"}
+var indexedStringKeys = []string{"file_name", "asset_origin_id", "project_id"}
 
 // ParseMapToAttributes parses a map and a file stat map
 // to a slice of attributes for POSTing to the AA server
