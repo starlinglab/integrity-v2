@@ -28,7 +28,7 @@ func uploadWeb3(space string, cidPaths []string) error {
 		return fmt.Errorf("w3 (w3cli) failed to use space, see output above if any. Error was: %w", err)
 	}
 
-	// Warn for what util.GetCAR might do
+	// https://github.com/starlinglab/integrity-v2/issues/17#issuecomment-2159049248
 	fmt.Fprintln(os.Stderr,
 		"warning: the whole file will be loaded into memory by w3 for upload")
 

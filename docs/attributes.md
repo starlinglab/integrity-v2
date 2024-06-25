@@ -139,11 +139,9 @@ Example:
     // Receipt / custom data returned by registration API
     data: {
       assetCid: "bafybeibqzv26nf3i5lzwjooqqoowe3krgynsaeamwu6sqrkjsumel7crsm",
-      assetTreeCid:
-        "bafkreigeszf54jrgvltbqd5awzpx3zdgv47d7p6tdhja5k2z3ea3uyrdru",
+      assetTreeCid: "bafkreigeszf54jrgvltbqd5awzpx3zdgv47d7p6tdhja5k2z3ea3uyrdru",
       order_id: "4dd7cd58-94f6-4aaa-8f24-b10bd41235d5",
-      txHash:
-        "0x78d30a13e4e6d38f8e574d381392152c88b1d40d4804763e7f080d18f968d625",
+      txHash: "0x78d30a13e4e6d38f8e574d381392152c88b1d40d4804763e7f080d18f968d625",
     },
   },
   // Minimal example

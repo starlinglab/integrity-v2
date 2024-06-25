@@ -233,6 +233,7 @@ func Run(args []string) error {
 
 	// Tell user
 	fmt.Printf("Injected file stored at %s\n", c2paFinalPath)
+	fmt.Println("Logged C2PA export and relationship to AuthAttr to the respective attributes: c2pa_exports, children")
 	return nil
 }
 

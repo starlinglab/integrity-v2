@@ -176,6 +176,7 @@ func Run(args []string) error {
 	}
 
 	fmt.Println("Success.")
+	fmt.Println("Logged registration to AuthAttr under the attribute 'registrations'.")
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package upload
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/starlinglab/integrity-v2/aa"
@@ -21,5 +22,8 @@ func logUploadWithAA(cid, serviceName, serviceType, path string) error {
 		Path:        path,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	})
+	if err != nil {
+		fmt.Println("Logged upload to AuthAttr under the attribute 'uploads'.")
+	}
 	return err
 }
