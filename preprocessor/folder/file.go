@@ -43,7 +43,10 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 	for _, asset := range assets {
 		fileName := filepath.Base(asset.Metadata.FilePath)
 		assetOriginRoot := getAssetOriginRoot(filePath)
-		assetOrigin := filepath.Join(assetOriginRoot, asset.Metadata.FilePath)
+		// asset_origin_id: <zip name>/<path in zip>
+		// Since the media files are always at the root of a proofmode zip,
+		// we can just append the filename.
+		assetOrigin := filepath.Join(assetOriginRoot, fileName)
 
 		metadata := map[string]any{
 			"file_name":         fileName,
