@@ -3,6 +3,7 @@ package search
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/starlinglab/integrity-v2/aa"
 )
@@ -41,9 +42,18 @@ func Run(args []string) error {
 			fmt.Fprintln(os.Stderr, "No attestations found.")
 			return nil
 		}
+
+		attNames := make([]string, len(atts))
+		i := 0
 		for k := range atts {
-			fmt.Println(k)
+			attNames[i] = k
+			i++
 		}
+		slices.Sort(attNames)
+		for _, s := range attNames {
+			fmt.Println(s)
+		}
+
 		return nil
 	}
 	if args[0] == "cids" {
