@@ -18,6 +18,36 @@ First, `cd` into the directory that contains the binary and config files with th
 
 All commands will be appended with `./integrity-v2` at the beginning, for example `/integrity-v2 search cids` 
 
-## View Files 
+## Search Files and Attributes
 
-To view all the CID (Content IDentifiers) of the files 
+To view all the CID (Content IDentifiers) of the files use 
+```
+/integrity-v2 search cids
+```
+
+To search for a certain CID and see one of the [attributes](https://github.com/starlinglab/integrity-v2/blob/main/docs/attributes.md), such as the time it was created, use 
+```
+attr get --cid <CID> --attr time_created
+``` 
+Basic attributes you can use:
+- Hashes (hex strings): `sha256`, `blake3`, `md5`
+- File info (from file preprocessor) `file_name`, `file_size`, `last_modified`
+- `time_created`: when the asset was originally created
+- `description`: human description added manually
+- `name`: human name added manually
+- `asset_origin_id`: a human identifier for the file such as a file name or internal ID like `ABC-123`
+- `asset_origin_type`: an array of strings that identify the kind of asset, like `folder`, `proofmode`, or `wacz`. Usually the array has just one value.
+- `author`: https://schema.org/author
+
+
+To find the file name of an asset with a given CID use `attr get --cid <CID> --attr file_name`
+
+To search the CID of a file given the name, use the command:
+```
+search index file_name <name of file>
+``` 
+
+To search all of the files in a given project, use the command:
+```
+attr get --cid <CID> --attr project_id <Project name>
+```
