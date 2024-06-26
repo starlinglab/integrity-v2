@@ -1,0 +1,23 @@
+# Quickstart    
+This Doc will walk you through getting quickly setup with the Starling Lab Integrity V2 CLI tool, and using some basic commands to interact with, upload, and add attributes to files.  
+
+## What is Authenticated Attributes?
+Authenticated Attributes (AA) is a software project from The Starling Lab. It uses an authenticated database, alongside modern cryptography to enable individuals and groups to securely store and share media and metadata. Using this system means the integrity and authenticity of files and metadata stored in the tool remain secure, even in the face of deepfakes and misinformation. It also enables data relationships, linking one piece of evidence to another, even across different organizations.
+
+The Authenticated Attributes plugin enables us to add the AA database. When digital media and metadata is added to our database, it which provides:
+* Trusted timestamping with OpenTimestamps
+* Cryptographic signatures of metadata
+* Cryptographic signatures of metadata
+* An unchangeable record of edit history
+
+
+## Installation
+First you will need to install the correct binary for your computer, which will be provided publicly later.
+
+First, `cd` into the directory that contains the binary and config files with the JWT and other settings
+
+All commands will be appended with `./integrity-v2` at the beginning, for example `/integrity-v2 search cids` 
+
+## View Files 
+
+To view all the CID (Content IDentifiers) of the files 
