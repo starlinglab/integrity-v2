@@ -7,7 +7,6 @@ Authenticated Attributes (AA) is a software project from The Starling Lab. It us
 The Authenticated Attributes plugin enables us to add the AA database. When digital media and metadata is added to our database, it which provides:
 * Trusted timestamping with OpenTimestamps
 * Cryptographic signatures of metadata
-* Cryptographic signatures of metadata
 * An unchangeable record of edit history
 
 
@@ -16,13 +15,13 @@ First you will need to install the correct binary for your computer, which will 
 
 First, `cd` into the directory that contains the binary and config files with the JWT and other settings
 
-All commands will be appended with `./integrity-v2` at the beginning, for example `/integrity-v2 search cids` 
+All commands will be appended with `./integrity-v2` at the beginning, for example `./integrity-v2 search cids` 
 
 ## Search Files and Attributes
 
 To view all the CID (Content IDentifiers) of the files use 
 ```
-/integrity-v2 search cids
+search cids
 ```
 
 To search for a certain CID and see one of the [attributes](https://github.com/starlinglab/integrity-v2/blob/main/docs/attributes.md), such as the time it was created, use 
@@ -37,10 +36,13 @@ Basic attributes you can use:
 - `name`: human name added manually
 - `asset_origin_id`: a human identifier for the file such as a file name or internal ID like `ABC-123`
 - `asset_origin_type`: an array of strings that identify the kind of asset, like `folder`, `proofmode`, or `wacz`. Usually the array has just one value.
-- `author`: https://schema.org/author
+- `author`
 
 
-To find the file name of an asset with a given CID use `attr get --cid <CID> --attr file_name`
+To find the file name of an asset with a given CID use 
+```
+attr get --cid <CID> --attr file_name
+```
 
 To search the CID of a file given the name, use the command:
 ```
