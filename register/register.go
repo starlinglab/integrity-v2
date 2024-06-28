@@ -27,7 +27,7 @@ func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register")
-	fs.BoolVar(&testnet, "test", false, "Register on a test network (if supported)")
+	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
 
 	err := fs.Parse(args)
