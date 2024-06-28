@@ -1,4 +1,4 @@
-package exportproof
+package export
 
 import (
 	"flag"
@@ -19,7 +19,7 @@ var (
 )
 
 func Run(args []string) error {
-	fs := flag.NewFlagSet("export-proof", flag.ContinueOnError)
+	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "attribute")
 	fs.StringVar(&format, "format", "cbor", "proof format (cbor,vc)")

@@ -1,4 +1,4 @@
-package injectc2pa
+package c2pa
 
 import (
 	"encoding/json"
@@ -25,7 +25,7 @@ var (
 )
 
 func Run(args []string) error {
-	fs := flag.NewFlagSet("inject-c2pa", flag.ContinueOnError)
+	fs := flag.NewFlagSet("c2pa", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&manifestName, "manifest", "", "name of the C2PA manifest template")
 	fs.BoolVar(&dryRun, "dry-run", false, "show manifest without injecting any files")

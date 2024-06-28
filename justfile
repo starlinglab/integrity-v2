@@ -8,7 +8,7 @@ ldflags := if prod == "1" { "-s -w" } else { "" }
 
 standalone:
     @mkdir -p build
-    @go build -ldflags="{{ldflags}}" -o build/integrity-v2
+    @go build -ldflags="{{ldflags}}" -o build/starling
 
 build tool:
     @mkdir -p build

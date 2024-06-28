@@ -4,7 +4,7 @@ The main method for interacting with the Integrity v2 pipeline is through the CL
 
 ## Usage
 
-Depending on how the binary is built, each CLI tool can either be called by running `integrity-v2 <tool name>` or just `<tool name>`.
+Depending on how the binary is built, each CLI tool can either be called by running `starling <tool name>` or just `<tool name>`.
 
 ## CLI tool list
 
