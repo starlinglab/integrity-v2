@@ -23,10 +23,6 @@ import (
 // Main file for all-in-one build
 
 var helpText = `This binary contains all the CLI tools and services in one.
-Call the tool as a subcommand, with any flags you need. For example:
-
-    $ starling attr get ...
-    $ starling file cid ...
 
 Remote/network commands:
     starling attr get
