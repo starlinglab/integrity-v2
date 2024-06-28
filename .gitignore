@@ -1,5 +1,6 @@
 NOTES.md
 /integrity-v2
+/starling
 build/*
 !build/.gitkeep
 *.toml

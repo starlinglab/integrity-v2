@@ -1,4 +1,4 @@
-package exportproof
+package export
 
 import (
 	"flag"
@@ -11,7 +11,6 @@ import (
 )
 
 var (
-	cid         string
 	attr        string
 	format      string
 	output      string
@@ -19,8 +18,7 @@ var (
 )
 
 func Run(args []string) error {
-	fs := flag.NewFlagSet("export-proof", flag.ContinueOnError)
-	fs.StringVar(&cid, "cid", "", "CID of asset")
+	fs := flag.NewFlagSet("export", flag.ContinueOnError)
 	fs.StringVar(&attr, "attr", "", "attribute")
 	fs.StringVar(&format, "format", "cbor", "proof format (cbor,vc)")
 	fs.StringVar(&output, "o", "", "output path")
@@ -33,10 +31,6 @@ func Run(args []string) error {
 	}
 
 	// Validate input
-	if cid == "" {
-		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide CID with --cid")
-	}
 	if attr == "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide attribute name with --attr")
@@ -49,6 +43,11 @@ func Run(args []string) error {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nmust provide output path with -o")
 	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("provide a single CID to work with")
+	}
+
+	cid := fs.Arg(0)
 
 	conf := config.GetConfig()
 

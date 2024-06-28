@@ -10,8 +10,8 @@ func Run(args []string) error {
 	if len(args) != 1 ||
 		(len(args) == 1 && args[0] != "aa-enc" && args[0] != "aa-sig") {
 		return fmt.Errorf(`Valid invocations:
-$ genkey aa-enc
-$ genkey aa-sig`)
+genkey aa-enc
+genkey aa-sig`)
 	}
 	if args[0] == "aa-sig" {
 		fmt.Println(`Currently not implemented. Instead run: openssl genpkey -algorithm ED25519`)

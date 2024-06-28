@@ -79,7 +79,7 @@ func GetConfig() *Config {
 		}
 		// Decoding worked
 		// Notify for non-standard path
-		if path != "/etc/integrity-v2/config.toml" {
+		if path != "/etc/integrity-v2/config.toml" && path != "integrity-v2.toml" {
 			fmt.Fprintf(os.Stderr, "using config file: %s\n", path)
 		}
 		break
