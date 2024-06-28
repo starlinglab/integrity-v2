@@ -80,7 +80,7 @@ Uploading 1 of 1...
 Done.
 
 # Register to blockchain
-$ starling file register --include media_type --on numbers --testnet
+$ starling file register --include media_type --on numbers --testnet bafybeibqzv26nf3i5lzwjooqqoowe3krgynsaeamwu6sqrkjsumel7crsm
 Registering...
 
 {"txHash":"0x94e23806f002dc6f34777977da3456a7cef52db61f0e810e521593f2de70cc5a","assetCid":"bafybeibqzv26nf3i5lzwjooqqoowe3krgynsaeamwu6sqrkjsumel7crsm","assetTreeCid":"baf
