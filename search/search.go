@@ -8,16 +8,16 @@ import (
 	"github.com/starlinglab/integrity-v2/aa"
 )
 
-const helpText = `$ search attr <cid>
+const helpText = `search attr <cid>
 <list of all the attribute names>
 
-$ search cids
+search cids
 <list of all the CIDs in the database>
 
-$ search index my_attr
+search index my_attr
 <all the values for my_attr that are indexed>
 
-$ search index my_attr my_value
+search index my_attr my_value
 <all the CIDs that have that key-value pair>`
 
 func Run(args []string) error {
