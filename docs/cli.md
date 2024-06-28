@@ -4,20 +4,38 @@ The main method for interacting with the Integrity v2 pipeline is through the CL
 
 ## Usage
 
-Depending on how the binary is built, each CLI tool can either be called by running `starling <tool name>` or just `<tool name>`.
+Depending on how the binary is built, each CLI tool can either be called by running `starling <group> <tool name>` or just `<tool name>`.
 
 ## CLI tool list
-
-- `attr`: get and set attributes (attestations) in the Authenticated Attributes database
-- `decrypt`: decrypt an encrypted file
-- `encrypt`: encrypt a file already stored in the system
-- `export-proof`: export a single attestation as a file in various formats
+- Group: `attr` (remote/network)
+  - `get`: get attributes in the Authenticated Attributes database
+  - `set`: set attributes in the Authenticated Attributes database
+  - `search`: search attributes, CIDs, and the index
+  - `export`: export a single attestation as a file in various formats
+- Group: `file` (server-only)
+  - `decrypt`: decrypt an encrypted file
+  - `encrypt`: encrypt a file already stored in the system
+  - `cid`: calculate a CIDv1 for a file
+  - `c2pa`: inject a file with AA metadata using C2PA
+  - `register`: register a file with a third-party blockchain
+  - `upload`: upload a file to a third-party storage provider
 - `genkey`: create a cryptographic key for use with Authenticated Attributes
-- `getcid`: calculate a CIDv1 for a file
-- `inject-c2pa`: inject a file with AA metadata using C2PA
-- `register`: register a file with a third-party blockchain
-- `search`: search attestations, CIDs, and the index
-- `upload`: upload a file to a third-party storage provider
+
+
+Examples:
+```
+starling attr get
+starling attr set
+starling attr export
+starling attr search
+starling genkey
+starling file upload
+starling file encrypt
+starling file decrypt
+starling file register
+starling file cid
+starling file c2pa
+```
 
 ## Demo
 
