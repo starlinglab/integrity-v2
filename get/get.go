@@ -19,10 +19,6 @@ var (
 	encKeyPath  string
 )
 
-var miniHelp = `
-TODO
-`
-
 func Run(args []string) error {
 	fs := flag.NewFlagSet("get", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")

@@ -20,10 +20,6 @@ var (
 	index       bool
 )
 
-var miniHelp = `
-TODO
-`
-
 func Run(args []string) error {
 	fs := flag.NewFlagSet("attr", flag.ContinueOnError)
 	fs.StringVar(&cid, "cid", "", "CID of asset")
