@@ -8,8 +8,8 @@ import (
 	"github.com/starlinglab/integrity-v2/aa"
 )
 
-const helpText = `$ search att <cid>
-<list of all the attestation names>
+const helpText = `$ search attr <cid>
+<list of all the attribute names>
 
 $ search cids
 <list of all the CIDs in the database>
@@ -30,16 +30,16 @@ func Run(args []string) error {
 		return nil
 	}
 
-	if args[0] == "att" {
+	if args[0] == "attr" {
 		if len(args) != 2 {
-			return fmt.Errorf("provide 1 CID to list attestations for")
+			return fmt.Errorf("provide 1 CID to list attributes for")
 		}
 		atts, err := aa.GetAttestations(args[1])
 		if err != nil {
 			return fmt.Errorf("error getting attestation list: %w", err)
 		}
 		if len(atts) == 0 {
-			fmt.Fprintln(os.Stderr, "No attestations found.")
+			fmt.Fprintln(os.Stderr, "No attributes found.")
 			return nil
 		}
 
