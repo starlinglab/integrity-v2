@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	cid     string
 	chain   string
 	include string
 	testnet bool
@@ -26,7 +25,6 @@ var (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
-	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register")
 	fs.BoolVar(&testnet, "test", false, "Register on a test network (if supported)")
@@ -39,14 +37,15 @@ func Run(args []string) error {
 	}
 
 	// Validate input
-	if cid == "" {
-		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide CID with --cid")
-	}
 	if chain == "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,near")
 	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("provide a single CID to work with")
+	}
+
+	cid := fs.Arg(0)
 
 	// Currently only one registration API is supported: Numbers Protocol
 	// Docs: https://docs.numbersprotocol.io/developers/commit-asset-history/commit-via-api

@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	cid         string
 	attr        string
 	getAll      bool
 	isEncrypted bool
@@ -21,7 +20,6 @@ var (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("get", flag.ContinueOnError)
-	fs.StringVar(&cid, "cid", "", "CID of asset")
 	fs.StringVar(&attr, "attr", "", "name of attribute to get")
 	fs.BoolVar(&getAll, "all", false, "get all attributes instead of just one")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get is encrypted")
@@ -34,14 +32,15 @@ func Run(args []string) error {
 	}
 
 	// Validate flags
-	if cid == "" {
-		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide CID with --cid")
-	}
 	if attr == "" && !getAll {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide attribute name with --attr")
 	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("provide a single CID to work with")
+	}
+
+	cid := fs.Arg(0)
 
 	// Load attribute encryption key
 	var encKey []byte

@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	cid         string
 	attr        string
-	getAll      bool
 	strInput    string
 	jsonInput   string
 	isEncrypted bool
@@ -21,10 +19,8 @@ var (
 )
 
 func Run(args []string) error {
-	fs := flag.NewFlagSet("attr", flag.ContinueOnError)
-	fs.StringVar(&cid, "cid", "", "CID of asset")
+	fs := flag.NewFlagSet("set", flag.ContinueOnError)
 	fs.StringVar(&attr, "attr", "", "name of attribute to set")
-	fs.BoolVar(&getAll, "all", false, "get all attributes instead of just one")
 	fs.StringVar(&strInput, "str", "", "string to set as value")
 	fs.StringVar(&jsonInput, "json", "", "JSON string to decode and set as value")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to set is encrypted")
@@ -37,15 +33,10 @@ func Run(args []string) error {
 	}
 
 	// Validate flags
-	if cid == "" {
-		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide CID with --cid")
-	}
-	if attr == "" && !getAll {
+	if attr == "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide attribute name with --attr")
 	}
-
 	if strInput != "" && jsonInput != "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nonly one of --str and --json are allowed")
@@ -57,10 +48,11 @@ func Run(args []string) error {
 	if jsonInput != "" && index {
 		return fmt.Errorf("--index is only support for --str input currently")
 	}
-	if getAll {
-		fs.PrintDefaults()
-		return fmt.Errorf("\n--all doesn't apply to set command")
+
+	if fs.NArg() != 1 {
+		return fmt.Errorf("provide a single CID to work with")
 	}
+	cid := fs.Arg(0)
 
 	// Load attribute encryption key
 	var encKey []byte
