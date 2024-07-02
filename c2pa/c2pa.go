@@ -1,4 +1,4 @@
-package injectc2pa
+package c2pa
 
 import (
 	"encoding/json"
@@ -19,14 +19,13 @@ import (
 )
 
 var (
-	cid          string
 	manifestName string
 	dryRun       bool
+	cid          string
 )
 
 func Run(args []string) error {
-	fs := flag.NewFlagSet("inject-c2pa", flag.ContinueOnError)
-	fs.StringVar(&cid, "cid", "", "CID of asset")
+	fs := flag.NewFlagSet("c2pa", flag.ContinueOnError)
 	fs.StringVar(&manifestName, "manifest", "", "name of the C2PA manifest template")
 	fs.BoolVar(&dryRun, "dry-run", false, "show manifest without injecting any files")
 
@@ -37,14 +36,15 @@ func Run(args []string) error {
 	}
 
 	// Validate input
-	if cid == "" {
-		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide CID with --cid")
-	}
 	if manifestName == "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide manifest name with --manifest")
 	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("provide a single CID to work with")
+	}
+
+	cid = fs.Arg(0)
 
 	conf := config.GetConfig()
 

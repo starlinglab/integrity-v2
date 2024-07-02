@@ -72,9 +72,17 @@ type WaczFileData struct {
 	UserAgent   string
 }
 
+// SHA-256 fingerprints of CA certs for Timestamp Authorities we trust
 var trustedTimestampFingerprints = []string{
 	// freetsa.org Root CA (self-signed)
+	// Need to trust this because Authsign uses it
 	"a6379e7cecc05faa3cbf076013d745e327bbbaa38c0b9af22469d4701d18aabc",
+
+	// DigiCertTrustedG4RSA4096SHA256TimeStampingCA.cer
+	// DigiCert's CA for timestamping operations
+	// Authsign will use this in the future:
+	// https://github.com/starlinglab/integrity-v2/issues/50
+	"281734d4592d1291d27190709cb510b07e22c405d5e0d6119b70e73589f98acf",
 }
 
 // findUserAgent finds the user agent string in the data.warc.gz file.

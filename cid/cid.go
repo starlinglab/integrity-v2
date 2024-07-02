@@ -1,4 +1,4 @@
-package getcid
+package cid
 
 import (
 	"fmt"

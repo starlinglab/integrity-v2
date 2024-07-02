@@ -3,19 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
-	"github.com/starlinglab/integrity-v2/attr"
+	"github.com/starlinglab/integrity-v2/c2pa"
+	"github.com/starlinglab/integrity-v2/cid"
 	"github.com/starlinglab/integrity-v2/decrypt"
-	"github.com/starlinglab/integrity-v2/dummy"
 	"github.com/starlinglab/integrity-v2/encrypt"
-	exportproof "github.com/starlinglab/integrity-v2/export-proof"
+	"github.com/starlinglab/integrity-v2/export"
 	"github.com/starlinglab/integrity-v2/genkey"
-	"github.com/starlinglab/integrity-v2/getcid"
-	injectc2pa "github.com/starlinglab/integrity-v2/inject-c2pa"
+	"github.com/starlinglab/integrity-v2/get"
 	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
 	"github.com/starlinglab/integrity-v2/register"
 	"github.com/starlinglab/integrity-v2/search"
+	"github.com/starlinglab/integrity-v2/set"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
@@ -24,44 +23,74 @@ import (
 // Main file for all-in-one build
 
 var helpText = `This binary contains all the CLI tools and services in one.
-Call the tool as a subcommand, with any flags you need. For example:
 
-    $ integrity-v2 attr get --cid ...
+Remote/network commands:
+    starling attr get
+    starling attr set
+    starling attr export
+    starling attr search
 
-CLI tools are listed online: https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
+Commands to run on the server:
+    starling genkey
+    starling file upload
+    starling file encrypt
+    starling file decrypt
+    starling file register
+    starling file cid
+    starling file c2pa
+
+Further documentation on CLI tools is listed online:
+https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
 
 Other than that, services are included: preprocessor-folder and webhook.
 And finally, the version or --version command will display the build version.`
 
-func run(cmd string, args []string) (bool, error) {
+func run(cmd, subcmd string, args []string) (bool, error) {
 	var err error
 	switch cmd {
-	case "dummy":
-		err = dummy.Run(args)
-	case "export-proof":
-		err = exportproof.Run(args)
-	case "inject-c2pa":
-		err = injectc2pa.Run(args)
 	case "attr":
-		err = attr.Run(args)
-	case "webhook":
-		err = webhook.Run(args)
-	case "upload":
-		err = upload.Run(args)
-	case "preprocessor-folder":
-		err = preprocessorfolder.Run(args)
-	case "register":
-		err = register.Run(args)
-	case "getcid":
-		err = getcid.Run(args)
-	case "search":
-		err = search.Run(args)
+		switch subcmd {
+		case "":
+			return true, fmt.Errorf("provide a subcommand")
+		case "get":
+			err = get.Run(args)
+		case "set":
+			err = set.Run(args)
+		case "search":
+			err = search.Run(args)
+		case "export":
+			err = export.Run(args)
+		default:
+			// Unknown command
+			return false, nil
+		}
+	case "file":
+		switch subcmd {
+		case "":
+			return true, fmt.Errorf("provide a subcommand")
+		case "upload":
+			err = upload.Run(args)
+		case "encrypt":
+			err = encrypt.Run(args)
+		case "decrypt":
+			err = decrypt.Run(args)
+		case "register":
+			err = register.Run(args)
+		case "cid":
+			err = cid.Run(args)
+		case "c2pa":
+			err = c2pa.Run(args)
+		default:
+			// Unknown command
+			return false, nil
+		}
 	case "genkey":
-		err = genkey.Run(args)
-	case "encrypt":
-		err = encrypt.Run(args)
-	case "decrypt":
-		err = decrypt.Run(args)
+		// subcmd is just another arg in this case
+		err = genkey.Run(append([]string{subcmd}, args...))
+	case "webhook":
+		err = webhook.Run(append([]string{subcmd}, args...))
+	case "preprocessor-folder":
+		err = preprocessorfolder.Run(append([]string{subcmd}, args...))
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	case "version", "--version":
@@ -70,6 +99,7 @@ func run(cmd string, args []string) (bool, error) {
 		// Unknown command
 		return false, nil
 	}
+
 	return true, err
 }
 
@@ -78,24 +108,21 @@ func main() {
 		fmt.Println(helpText)
 		return
 	}
-
-	// Try to run command based on binary name
-	// Might have been symlinked with different names
-	ok, err := run(filepath.Base(os.Args[0]), os.Args[1:])
-	if !ok {
-		// If that failed, then use the second arg: ./integrity-v2 dummy ...
-		if len(os.Args) == 1 {
-			fmt.Fprintln(os.Stderr, "unknown command")
-			os.Exit(1)
-		}
-		ok, err = run(os.Args[1], os.Args[2:])
+	var ok bool
+	var err error
+	if len(os.Args) == 2 {
+		// Could be invalid "starling file"
+		// Or valid "starling genkey"
+		ok, err = run(os.Args[1], "", []string{})
+	} else {
+		// 2+ args after "starling", like "starling file cid"
+		ok, err = run(os.Args[1], os.Args[2], os.Args[3:])
 	}
 	if !ok {
 		// If that fails too then give up
 		fmt.Fprintln(os.Stderr, "unknown command")
 		os.Exit(1)
 	}
-
 	// Command was run, either successfully or with error
 	util.Fatal(err)
 }
