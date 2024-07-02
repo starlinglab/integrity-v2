@@ -74,3 +74,15 @@ attr get --cid <CID> --attr project_id <Project name>
 ```
 attr get --cid <CID> --attr project_id <Project name> ipfs-camp-demo
 ```
+
+## Exploring Files
+
+To explore a certain file that you saw listed from the index. You will get a CID as output
+```
+./starling attr search index file_name 'patanal_19.jpg'
+```
+
+Once you have the CID you can use the other commands to explore propoerties or 'attributes' of this 
+
+
+### Proofmode Files
