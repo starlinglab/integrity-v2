@@ -20,7 +20,7 @@ All commands will be appended with `./integrity-v2` at the beginning, for exampl
 > Note - you may have to go into privacy and security settings (on mac) and allow this appication to be run on your computer
 
 ### Config File
-Alongside the binary, (wherever it's installed) you need to have a `config.toml` file, with at least the following. See the [example toml file](/example_config.toml) in this repo
+Alongside the binary, (wherever it's installed) you need to have a config file names `integrity-v2.toml` file, with at least the following. See the [example toml file](/example_config.toml) in this repo
 
 ```
 [aa]
@@ -29,6 +29,8 @@ Alongside the binary, (wherever it's installed) you need to have a `config.toml`
 url = "http://localhost:3001"
 jwt = "foo.bar.baz"           
 ```
+
+> note, without a jwt you will not be able to do `attr set`. The current url is `"https://aa.dev.starlinglab.org"`
 
 ## Search Files and Attributes
 
@@ -57,10 +59,10 @@ To find the file name of an asset with a given CID use
 attr get --cid <CID> --attr file_name
 ```
 
-To search the CID of a file given the name, use the command:
+To see all the files in this project by the attributes (that are indexed) `file_name`, `asset_origin_id`, or `project_id`
 ```
-search index file_name <name of file>
-``` 
+attr search index file_name
+```
 
 To search all of the files in a given project, use the command:
 ```
