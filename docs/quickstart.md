@@ -17,6 +17,17 @@ First, `cd` into the directory that contains the binary and config files with th
 
 All commands will be appended with `./integrity-v2` at the beginning, for example `./integrity-v2 search cids` 
 
+### Config File
+Alongside the binary, (wherever it's installed) you need to have a `config.toml` file, with at least the following. See the [example toml file](/example_config.toml) in this repo
+
+```
+[aa]
+# Actual config for AA service is provided in .env file
+# Any settings in this section are just for AA users
+url = "http://localhost:3001"
+jwt = "foo.bar.baz"           
+```
+
 ## Search Files and Attributes
 
 To view all the CID (Content IDentifiers) of the files use 
@@ -52,4 +63,10 @@ search index file_name <name of file>
 To search all of the files in a given project, use the command:
 ```
 attr get --cid <CID> --attr project_id <Project name>
+```
+
+> Example for IPFS camp demo
+
+```
+attr get --cid <CID> --attr project_id <Project name> ipfs-camp-demo
 ```
