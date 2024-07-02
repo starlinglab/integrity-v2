@@ -17,6 +17,8 @@ First, `cd` into the directory that contains the binary and config files with th
 
 All commands will be appended with `./integrity-v2` at the beginning, for example `./integrity-v2 search cids` 
 
+> Note - you may have to go into privacy and security settings (on mac) and allow this appication to be run on your computer
+
 ### Config File
 Alongside the binary, (wherever it's installed) you need to have a `config.toml` file, with at least the following. See the [example toml file](/example_config.toml) in this repo
 
@@ -32,7 +34,7 @@ jwt = "foo.bar.baz"
 
 To view all the CID (Content IDentifiers) of the files use 
 ```
-search cids
+search attr cids
 ```
 
 To search for a certain CID and see one of the [attributes](https://github.com/starlinglab/integrity-v2/blob/main/docs/attributes.md), such as the time it was created, use 
