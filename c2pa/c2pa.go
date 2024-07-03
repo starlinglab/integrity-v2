@@ -162,6 +162,10 @@ func Run(args []string) error {
 
 	// Run c2patool
 
+	if conf.Bins.C2patool == "" {
+		return fmt.Errorf("c2patool path not configured")
+	}
+
 	cmd := exec.Command(
 		conf.Bins.C2patool,
 		cidSymlink,

@@ -16,6 +16,9 @@ import (
 func uploadWeb3(space string, cidPaths []string) error {
 	conf := config.GetConfig()
 
+	if conf.Bins.W3 == "" {
+		return fmt.Errorf("w3 (w3cli) path not configured")
+	}
 	if _, err := os.Stat(conf.Bins.W3); errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("w3 (w3cli) not found at configured path, may not be installed: %s", conf.Bins.W3)
 	}

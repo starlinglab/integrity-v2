@@ -56,6 +56,9 @@ For traditional storage providers, the path is always a directory.`)
 
 	// All unknown remotes are assumed to be rclone remotes.
 
+	if config.GetConfig().Bins.Rclone == "" {
+		return fmt.Errorf("rclone path not configured")
+	}
 	if _, err := os.Stat(config.GetConfig().Bins.Rclone); errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("rclone not found at configured path, may not be installed: %s", config.GetConfig().Bins.Rclone)
 	}
