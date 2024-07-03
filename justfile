@@ -17,3 +17,10 @@ build tool:
 # Remove binaries but not any custom made directories or whatever
 clean:
     @find build -maxdepth 1 -type f -delete
+
+releases:
+    @mkdir -p build
+    GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o build/starling_linux_amd64
+    GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o build/starling_windows_amd64.exe
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o build/starling_mac_intel
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o build/starling_mac_apple
