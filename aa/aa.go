@@ -32,28 +32,29 @@ type GetAttOpts struct {
 // Attestation as stored in the database in DAG-CBOR.
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/database.md#schema
 //
-// This does not encode into the same CBOR it was decoded from, but that's okay
-// as encoding this struct should be not required anywhere.
+// This may not encode into the same CBOR it was decoded from, but that's okay
+// as that should not be required anywhere.
 type AttEntry struct {
 	Signature struct {
-		PubKey [32]byte
-		Sig    [64]byte
-		Msg    CborCID
-	}
+		PubKey []byte  `json:"pubKey"`
+		Sig    []byte  `json:"sig"`
+		Msg    CborCID `json:"msg"`
+	} `json:"signature"`
 	Timestamp struct {
 		OTS struct {
-			Proof    []byte
-			Upgraded bool
-			Msg      CborCID
-		}
-	}
+			Proof    []byte  `json:"proof"`
+			Upgraded bool    `json:"upgraded"`
+			Msg      CborCID `json:"msg"`
+		} `json:"ots"`
+	} `json:"timestamp"`
 	Attestation struct {
-		CID       CborCID
-		Value     any
-		Encrypted bool
-		Timestamp time.Time
-	}
-	Version string
+		CID       CborCID   `json:"CID"`
+		Value     any       `json:"value"`
+		Attribute string    `json:"attribute"`
+		Encrypted bool      `json:"encrypted"`
+		Timestamp time.Time `json:"timestamp"`
+	} `json:"attestation"`
+	Version string `json:"version"`
 }
 
 // Attributes for uploading.

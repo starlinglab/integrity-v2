@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	attr        string
-	getAll      bool
-	isEncrypted bool
-	encKeyPath  string
+	attr            string
+	getAll          bool
+	isEncrypted     bool
+	encKeyPath      string
+	showAttestation bool
 )
 
 func Run(args []string) error {
@@ -25,6 +26,7 @@ func Run(args []string) error {
 	fs.BoolVar(&getAll, "all", false, "get all attributes instead of just one")
 	fs.BoolVar(&isEncrypted, "encrypted", false, "value to get is encrypted")
 	fs.StringVar(&encKeyPath, "key", "", "(optional) manual path to encryption key file, implies --encrypted")
+	fs.BoolVar(&showAttestation, "attestation", false, "show attestation information, not just value. Note values are not decrypted for this output.")
 
 	err := fs.Parse(args)
 	if err != nil {
@@ -36,6 +38,9 @@ func Run(args []string) error {
 	if attr == "" && !getAll {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide attribute name with --attr")
+	}
+	if getAll && showAttestation {
+		return fmt.Errorf("can't use --all and --attestation together")
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("provide a single CID to work with")
@@ -82,12 +87,27 @@ func Run(args []string) error {
 		os.Stdout.Write(b)
 		fmt.Fprintln(os.Stderr, "\n\nThis is not an exact canonical representation.")
 	} else {
-		ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey})
+		leaveEnc := false
+		if showAttestation {
+			leaveEnc = true
+		}
+
+		ae, err := aa.GetAttestation(cid, attr, aa.GetAttOpts{EncKey: encKey, LeaveEncrypted: leaveEnc})
 		if err == aa.ErrNeedsKey {
 			return fmt.Errorf("error attestation is encrypted, use --encrypted or --key")
 		}
 		if err != nil {
 			return fmt.Errorf("error getting attestation: %w", err)
+		}
+
+		if showAttestation {
+			b, err := json.MarshalIndent(ae, "", "  ")
+			if err != nil {
+				return fmt.Errorf("error encoding value as JSON: %w", err)
+			}
+			os.Stdout.Write(b)
+			fmt.Fprintln(os.Stderr, "\n\nThis is not an exact canonical representation.")
+			return nil
 		}
 
 		kind := reflect.TypeOf(ae.Attestation.Value).Kind()
