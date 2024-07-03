@@ -15,6 +15,7 @@ import (
 	"github.com/starlinglab/integrity-v2/register"
 	"github.com/starlinglab/integrity-v2/search"
 	"github.com/starlinglab/integrity-v2/set"
+	"github.com/starlinglab/integrity-v2/sync"
 	"github.com/starlinglab/integrity-v2/upload"
 	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
@@ -42,10 +43,19 @@ Commands to run on the server:
 Further documentation on CLI tools is listed online:
 https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
 
-Other than that, services are included: preprocessor-folder and webhook.
+Other than that, services are included:
+	preprocessor-folder
+	webhook
+	sync
+
 And finally, the version or --version command will display the build version.`
 
 func run(cmd, subcmd string, args []string) (bool, error) {
+	var allArgs []string
+	if subcmd != "" {
+		allArgs = append([]string{subcmd}, args...)
+	}
+
 	var err error
 	switch cmd {
 	case "attr":
@@ -86,11 +96,13 @@ func run(cmd, subcmd string, args []string) (bool, error) {
 		}
 	case "genkey":
 		// subcmd is just another arg in this case
-		err = genkey.Run(append([]string{subcmd}, args...))
+		err = genkey.Run(allArgs)
 	case "webhook":
-		err = webhook.Run(append([]string{subcmd}, args...))
+		err = webhook.Run(allArgs)
 	case "preprocessor-folder":
-		err = preprocessorfolder.Run(append([]string{subcmd}, args...))
+		err = preprocessorfolder.Run(allArgs)
+	case "sync":
+		err = sync.Run(allArgs)
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	case "version", "--version":
