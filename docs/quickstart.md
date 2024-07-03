@@ -34,8 +34,9 @@ jwt = "foo.bar.baz"
 
 > note, without a jwt you will not be able to do `attr set`. The current url is `"https://aa.dev.starlinglab.org"`
 
-## Search Files and Attributes
+## Search Assets and Attributes
 
+### Asset Basics
 To view all the CID (Content IDentifiers) of the files use 
 ```
 ./starling attr search cids
@@ -46,37 +47,42 @@ To search for a CID if you know the file name (all commands must use CID as the 
 starling attr search index file_name <filename.extension>
 ```
 
-See all attributes of a file
+To see the different projects that assets are organizaed into, search by `project_id`
+```
+attr search index project_id <name-of-project>
+```
+
+> In general, to see all the files that are indexed, you can search by the attributes: `file_name`, `asset_origin_id`, or `project_id`
+
+
+
+See all the attributes of a file
 ```
 starling attr get -all <CID>
 ```
 
 
-Basic attributes you can use:
+**Attributes**
 - Hashes (hex strings): `sha256`, `blake3`, `md5`
 - File info (from file preprocessor) `file_name`, `file_size`, `last_modified`
 - `time_created`: when the asset was originally created
 - `description`: human description added manually
 - `name`: human name added manually
 - `asset_origin_id`: a human identifier for the file such as a file name or internal ID like `ABC-123`
-- `asset_origin_type`: an array of strings that identify the kind of asset, like `folder`, `proofmode`, or `wacz`. Usually the array has just one value.
-- `author`
+- `asset_origin_type`: an array of strings that identify the kind of asset, like `folder`, `proofmode`, or `wacz`. 
+- `author`: an organization or person according to the [schema](https://schema.org/author)
 
+_See more in [attributes.md](/docs/attributes.md)_
 
+### Exploring Attributes
 To search for a certain CID and see one of the [attributes](https://github.com/starlinglab/integrity-v2/blob/main/docs/attributes.md), such as the time it was created, use 
 ```
 attr get --cid <CID> --attr time_created
 ``` 
 
-
 To find the file name of an asset with a given CID use 
 ```
 attr get --cid <CID> --attr file_name
-```
-
-To see all the files that are indexed, you can search by the attributes: `file_name`, `asset_origin_id`, or `project_id`
-```
-attr search index project_id <name-of-project>
 ```
 
 You can see which projects exist/ are indexed with
@@ -91,28 +97,34 @@ attr search index project_id <project-name>
 attr get --cid <CID> --attr project_id ipfs-camp-demo
 ```
 
-## Exploring Files
+## Example Workflow with Local CLI
+With the CLI you install on your local machine, you can use the commands `get`, `set`, `search`, and `export`. Note that unless you have the encryption key on your local machine, you will not be able to inspect encrypted attributes.
 
-To explore a certain file that you saw listed from the index. _You will get a CID as output_
+_Unless you set it up differently, all commands will should be run in the folder where the binary is installed appended by `./starling`_
+
+Check what commands and modifiers you have available in each command:
+```
+attr [get, set, search, export]
+```
+
+To explore a certain file that you saw listed from the index, search by  _You will get a CID as output_
 
 ```
-./starling attr search index file_name 'patanal_19.jpg'
+attr search index file_name 'patanal_19.jpg'
 ```
 
 Once you have the CID you can use the other commands to explore propoerties or 'attributes' of this piece of media
 
-If you search by
+Search by the `asset_origin_id` to see a listing of paths. The path shows you which project, and type of content you have.
 ```
 ./starling attr search index asset_origin_id
 ...
 /ipfs-camp-demo/proofmode-0x5b2c9a2821cea15a-2024-07-02-11-07-09gmt-05:00.zip/img_20240702_110659.jpg
 ```
-The path shows you which project, and type of content you have.
 
 
-
-## Exploring Expanded Capabilities with the Server
-
+## Example Workflow: Exploring expanded capabilities with the Starling server
+If you establish an authenticated SSH connection within the Starling server, you have access to an expanded set of commands
 
 ### Proofmode Files
 When a proofmode 'bundle' (zip file) is uploaded to the Starling Integrity V2 Backend, the image is extracted from the bundle, and the other items, such as the .crt and .pubkey
