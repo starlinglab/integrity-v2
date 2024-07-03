@@ -26,7 +26,7 @@ var (
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near)")
-	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register")
+	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register (optional)")
 	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
 
@@ -50,22 +50,24 @@ func Run(args []string) error {
 	// Currently only one registration API is supported: Numbers Protocol
 	// Docs: https://docs.numbersprotocol.io/developers/commit-asset-history/commit-via-api
 
-	attrNames := strings.Split(include, ",")
-
-	metadata := make(map[string]any)
-	for _, attr := range attrNames {
-		var err error
-		metadata[attr], err = getAttValue(cid, attr)
-		if err != nil {
-			return err
-		}
-	}
-
 	requestData := map[string]any{
 		"assetCid":     cid,
 		"assetCreator": "Starling Lab",
 		"testnet":      testnet,
-		"custom":       metadata,
+	}
+
+	var attrNames []string
+	if include != "" {
+		attrNames = strings.Split(include, ",")
+		metadata := make(map[string]any)
+		for _, attr := range attrNames {
+			var err error
+			metadata[attr], err = getAttValue(cid, attr)
+			if err != nil {
+				return err
+			}
+		}
+		requestData["custom"] = metadata
 	}
 
 	// Required fields
@@ -89,7 +91,7 @@ func Run(args []string) error {
 	}
 	tmp2, err := time.Parse(time.RFC3339, timeCreated)
 	if err != nil {
-		return fmt.Errorf("schema error: time_created is RFC3339: %w", err)
+		return fmt.Errorf("schema error: time_created is not RFC3339: %w", err)
 	}
 	requestData["assetTimestampCreated"] = tmp2.Unix()
 
