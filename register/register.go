@@ -120,6 +120,10 @@ func Run(args []string) error {
 		return nil
 	}
 
+	if conf.Numbers.Token == "" {
+		return fmt.Errorf("numbers authentication token not set in config file")
+	}
+
 	requestBytes, err := json.Marshal(requestData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request JSON: %w", err)
