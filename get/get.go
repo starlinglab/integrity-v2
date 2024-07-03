@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/starlinglab/integrity-v2/aa"
+	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
 
@@ -51,6 +52,9 @@ func Run(args []string) error {
 			return fmt.Errorf("error reading key: %w", err)
 		}
 	} else if isEncrypted {
+		if config.GetConfig().Dirs.EncKeys == "" {
+			return fmt.Errorf("enc_keys path is not configured, are you on the server?")
+		}
 		var err error
 		_, encKey, _, err = util.GenerateEncKey(cid, attr)
 		if err != nil {

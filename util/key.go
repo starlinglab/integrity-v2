@@ -18,6 +18,11 @@ const (
 // and stores it in a file. If the key already exists, it is read from the file.
 func GenerateEncKey(cid, attr string) (encKeyPath string, encKeyBytes []byte, isNew bool, err error) {
 	conf := config.GetConfig()
+
+	if conf.Dirs.EncKeys == "" {
+		return "", nil, false, fmt.Errorf("enc_keys path is not configured")
+	}
+
 	encKeyPath = filepath.Join(conf.Dirs.EncKeys, fmt.Sprintf("%s_%s.key", cid, attr))
 	f, err := os.OpenFile(encKeyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
