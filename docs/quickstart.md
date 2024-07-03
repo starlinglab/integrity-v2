@@ -4,7 +4,7 @@ This Doc will walk you through getting quickly setup with the Starling Lab Integ
 ## What is Authenticated Attributes?
 Authenticated Attributes (AA) is a software project from The Starling Lab. It uses an authenticated database, alongside modern cryptography to enable individuals and groups to securely store and share media and metadata. Using this system means the integrity and authenticity of files and metadata stored in the tool remain secure, even in the face of deepfakes and misinformation. It also enables data relationships, linking one piece of evidence to another, even across different organizations.
 
-The Authenticated Attributes plugin enables us to add the AA database. When digital media and metadata is added to our database, it which provides:
+The Authenticated Attributes database consists of separate _'attributes'_. An asset (a media or any type of file) is one attribute, identified with a CID, and any metadata, in the form of a key:value pair that is added,  is related to the CID of the asset as another attribute. Each _attrbibute_ is signed and timestamped, and if this attribute is edited, it is appended as an edit to the original attribute. When digital media and metadata is added to our database, it which provides:
 * Trusted timestamping with OpenTimestamps
 * Cryptographic signatures of metadata
 * An unchangeable record of edit history
@@ -97,8 +97,8 @@ attr search index project_id <project-name>
 attr get --cid <CID> --attr project_id ipfs-camp-demo
 ```
 
-## Example Workflow with Local CLI
-With the CLI you install on your local machine, you can use the commands `get`, `set`, `search`, and `export`. Note that unless you have the encryption key on your local machine, you will not be able to inspect encrypted attributes.
+## Example Workflow: Local CLI
+With the CLI you install on your local machine, you can use the commands, appended with `attr`, including `get`, `set`, `search`, and `export`. Note that you cannot encrypt or inspect encrypted attributes.
 
 _Unless you set it up differently, all commands will should be run in the folder where the binary is installed appended by `./starling`_
 
@@ -124,7 +124,7 @@ Search by the `asset_origin_id` to see a listing of paths. The path shows you wh
 
 
 ## Example Workflow: Exploring expanded capabilities with the Starling server
-If you establish an authenticated SSH connection within the Starling server, you have access to an expanded set of commands
+If you establish an authenticated SSH connection within the Starling server, you have access to an expanded set of commands, appended with `file`, including `decrypt`, `encrypt`, `cid`, `c2pa`, `register`(on chain), `upload`, 
 
 ### Proofmode Files
 When a proofmode 'bundle' (zip file) is uploaded to the Starling Integrity V2 Backend, the image is extracted from the bundle, and the other items, such as the .crt and .pubkey
