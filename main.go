@@ -50,16 +50,21 @@ Other than that, services are included:
 
 And finally, the version or --version command will display the build version.`
 
-func run(cmd, subcmd string, args []string) (bool, error) {
-	var allArgs []string
-	if subcmd != "" {
-		allArgs = append([]string{subcmd}, args...)
+func run(group string, args []string) (bool, error) {
+	// group is "attr" or "file" or an ungrouped cmd like "sync"
+	// cmd is the grouped cmd like "upload"
+	var cmd string
+	if len(args) > 0 && len(group) != 1 {
+		// Not a short form
+		cmd = args[0]
+		args = args[1:]
 	}
 
 	var err error
-	switch cmd {
+	switch group {
+	// Groups
 	case "attr":
-		switch subcmd {
+		switch cmd {
 		case "":
 			return true, fmt.Errorf("provide a subcommand")
 		case "get":
@@ -75,7 +80,7 @@ func run(cmd, subcmd string, args []string) (bool, error) {
 			return false, nil
 		}
 	case "file":
-		switch subcmd {
+		switch cmd {
 		case "":
 			return true, fmt.Errorf("provide a subcommand")
 		case "upload":
@@ -94,19 +99,28 @@ func run(cmd, subcmd string, args []string) (bool, error) {
 			// Unknown command
 			return false, nil
 		}
+	// Ungrouped commands
 	case "genkey":
-		// subcmd is just another arg in this case
-		err = genkey.Run(allArgs)
+		// cmd is just another arg in this case
+		err = genkey.Run(args)
 	case "webhook":
-		err = webhook.Run(allArgs)
+		err = webhook.Run(args)
 	case "preprocessor-folder":
-		err = preprocessorfolder.Run(allArgs)
+		err = preprocessorfolder.Run(args)
 	case "sync":
-		err = sync.Run(allArgs)
+		err = sync.Run(args)
+	// Helpers / metadata
 	case "-h", "--help", "help":
 		fmt.Println(helpText)
 	case "version", "--version":
 		fmt.Println(util.Version())
+	// Short forms
+	case "g":
+		err = get.Run(args)
+	case "s":
+		err = search.Run(args)
+	case "c":
+		err = cid.Run(args)
 	default:
 		// Unknown command
 		return false, nil
@@ -125,10 +139,10 @@ func main() {
 	if len(os.Args) == 2 {
 		// Could be invalid "starling file"
 		// Or valid "starling genkey"
-		ok, err = run(os.Args[1], "", []string{})
+		ok, err = run(os.Args[1], []string{})
 	} else {
 		// 2+ args after "starling", like "starling file cid"
-		ok, err = run(os.Args[1], os.Args[2], os.Args[3:])
+		ok, err = run(os.Args[1], os.Args[2:])
 	}
 	if !ok {
 		// If that fails too then give up
