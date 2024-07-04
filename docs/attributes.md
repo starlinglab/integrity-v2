@@ -6,16 +6,36 @@ Note all timestamps are stored as strings in RFC 3339 format.
 
 All data is natively stored in DAG-CBOR encoding.
 
+## Table of Contents
+- [Database Attributes](#database-attributes)
+  - [Table of Contents](#table-of-contents)
+  - [Basic asset/file metadata](#basic-assetfile-metadata)
+  - [Ingest-specific](#ingest-specific)
+    - [`proofmode`](#proofmode)
+    - [`wacz`](#wacz)
+  - [Process log attributes](#process-log-attributes)
+    - [`c2pa_exports`](#c2pa_exports)
+    - [`uploads`](#uploads)
+    - [`registrations`](#registrations)
+
+
 ## Basic asset/file metadata
+
+The majority of these attributes are set automatically upon ingestion, but all can be overrided manually later if needed.
 
 - Hashes (hex strings): `sha256`, `blake3`, `md5`
 - File info (from file preprocessor) `file_name`, `file_size`, `last_modified`
 - `time_created`: when the asset was originally created
 - `description`: human description added manually
 - `name`: human name added manually
-- `asset_origin_id`: a human identifier for the file such as a file name or internal ID like `ABC-123`
+- `asset_origin_id`: a unique human-readable identifier for the file
+  - Currently this is just the full file path
 - `asset_origin_type`: an array of strings that identify the kind of asset, like `folder`, `proofmode`, or `wacz`. Usually the array has just one value.
 - `author`: https://schema.org/author
+- `project_id`: the name for the project this asset was ingested under
+- `project_path`: the path for the project within the sync folder
+
+Encrypted files have the `encryption_type` attribute, currently always set to `secretstream`. See [encryption.md](./encryption.md) for more info.
 
 ## Ingest-specific
 
