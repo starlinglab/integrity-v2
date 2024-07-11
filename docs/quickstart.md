@@ -32,6 +32,7 @@ The demo server is at `url = "https://aa.dev.starlinglab.org"` and a `jwt` is no
 
 ## Search Assets & Indicies
 All assets in AuthAttr are given a CID. You can search for these CIDs and see the attributes associated with these assets.
+There are 3 attributes that assets are indexed by. You can search by the attributes: `file_name`, `asset_origin_id`, or `project_id`
 
 To view CIDs of all the files in the database:
 
