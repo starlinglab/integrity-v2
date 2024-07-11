@@ -4,7 +4,9 @@ This Doc will walk you through getting quickly setup with the Starling Lab Integ
 ## What is Authenticated Attributes?
 Authenticated Attributes (AA) is a software project from The Starling Lab. It uses an authenticated database, alongside modern cryptography to enable individuals and groups to securely store and share media and metadata. Using this system means the integrity and authenticity of files and metadata stored in the tool remain secure, even in the face of deepfakes and misinformation. It also enables data relationships, linking one piece of evidence to another, even across different organizations.
 
-The Authenticated Attributes database consists of separate _'attributes'_. An asset (a media or any type of file) is identified with a CID, and any metadata, in the form of a key:value pair that is added,  is related to the CID of the asset as another attribute. Each _attrbibute_ is signed and timestamped, and if this attribute is edited, it is appended as an edit to the original attribute. When digital media and metadata is added to our database, it which provides:
+<img title="Authenticated Attributes" alt="Alt text" src="assets/AA_Diagram.png">
+
+The Authenticated Attributes database consists of separate _'attributes'_. An asset (a media or any type of file) is identified with a CID, and any metadata, in the form of a key:value pair that is added,  is related to the CID of the asset as. Each _attrbibute_ is signed and timestamped, and if this attribute is edited, it is appended as an edit to the original attribute. When digital media and metadata is added to our database, it which provides:
 * Trusted timestamping with OpenTimestamps
 * Cryptographic signatures of metadata
 * An unchangeable record of edit history
