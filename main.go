@@ -54,7 +54,7 @@ func run(group string, args []string) (bool, error) {
 	// group is "attr" or "file" or an ungrouped cmd like "sync"
 	// cmd is the grouped cmd like "upload"
 	var cmd string
-	if len(args) > 0 && len(group) != 1 {
+	if len(args) > 0 && group == "attr" || group == "file" {
 		// Not a short form
 		cmd = args[0]
 		args = args[1:]
