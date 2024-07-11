@@ -6,6 +6,8 @@ This is a demo prepared for a presentation where people upload files synced to A
 ssh sysadmin@142.93.149.155
 ```
 
+All commands on starling server are appended with `starling`
+
 # Hands-On Demo - IPFS Camp Uploads 
 This piece is a walk-through for a demo of previewing assets that people have created using proofmode and uploaded to the Starling Integrity Backed using a GDrive folder
 First, list the CIDs in the project that people have uploaded, then lets preview all assets available

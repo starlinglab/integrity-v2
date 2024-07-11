@@ -17,8 +17,6 @@ First, `cd` into the directory that contains the binary and config files with th
 
 All local commands will be appended with `./starling` at the beginning, for example `./starling search cids` 
 
-All commands on starling server are appended with `starling`
-
 > Note - you may have to go into privacy and security settings (on mac) and allow this CLI appication to be run on your computer
 
 ### Config File
