@@ -15,7 +15,7 @@ First you will need to install the correct binary for your computer, found here:
 
 First, `cd` into the directory that contains the binary and config files with the JWT and other settings
 
-All local commands will be appended with `./integrity-v2` at the beginning, for example `./integrity-v2 search cids` 
+All local commands will be appended with `./starling` at the beginning, for example `./starling search cids` 
 
 All commands on starling server are appended with `starling`
 
@@ -32,37 +32,63 @@ url = "http://localhost:3001"
 jwt = "foo.bar.baz"           
 ```
 
-> note, without a jwt you will not be able to do `attr set`. The current url is `"https://aa.dev.starlinglab.org"`
+> note, without a jwt you will not be able to do modification commands like `attr set`. The current url is `"https://aa.dev.starlinglab.org"`
 
-## Search Assets and Attributes
+## Search Assets & Indicies
+All assets in Authenticated Attributes are given a Content IDentifier (CID). You can search for these CIDs and see the attributes associated with these assets
 
-### Asset Basics
 To view all the CID (Content IDentifiers) of the files use 
 ```
 ./starling attr search cids
 ```
-
-To search for a CID if you know the file name (all commands must use CID as the identifier) use:
-```
-starling attr search index file_name <filename.extension>
-```
-
-To see the different projects that assets are organizaed into, search by `project_id`
-```
-attr search index project_id <name-of-project>
-```
-
-> In general, to see all the files that are indexed, you can search by the attributes: `file_name`, `asset_origin_id`, or `project_id`
-
-
+#### You need the *CID* of an asset to see all it's properties or *attributes*
 
 See all the attributes of a file
 ```
-starling attr get -all <CID>
+./starling attr get -all <CID>
 ```
 
+Assets are organized into collections or *Projects*
+You can see which projects exist/ are indexed with
 
-**Attributes**
+```
+./starling attr search index project_id 
+```
+
+To see the different assets in the project, search the index by `project_id `
+
+```
+./starling attr search index project_id ipfs-camp-demo
+```
+
+To search for a CID if you know the file name (all commands must use CID as the identifier) use:
+
+```
+./starling attr search index file_name "1715212515733.jpg"
+```
+
+#### There are 3 attributes that assets are indexed by. You can search by the attributes: `file_name`, `asset_origin_id`, or `project_id`
+
+
+Search by the `asset_origin_id` to see a listing of paths. The path shows you which project, and type of content you have.
+```
+./starling attr search index asset_origin_id
+...
+/ipfs-camp-demo/proofmode-0x5b2c9a2821cea15a-2024-07-02-11-07-09gmt-05:00.zip/img_20240702_110659.jpg
+```
+
+</br>
+</br>
+</br>
+-------------------------------------------------------
+</br>
+</br>
+</br>
+
+## Get Attributes
+Attributes are individually signed and timestampes piece of metadata associated with an asset's CID.
+
+**The different Attributes Include**
 - Hashes (hex strings): `sha256`, `blake3`, `md5`
 - File info (from file preprocessor) `file_name`, `file_size`, `last_modified`
 - `time_created`: when the asset was originally created
@@ -74,233 +100,44 @@ starling attr get -all <CID>
 
 _See more in [attributes.md](/docs/attributes.md)_
 
-### Exploring Attributes
-To search for a certain CID and see one of the [attributes](https://github.com/starlinglab/integrity-v2/blob/main/docs/attributes.md), such as the time it was created, use 
-```
-attr get --cid <CID> --attr time_created
-``` 
-
-To find the file name of an asset with a given CID use 
-```
-attr get --cid <CID> --attr file_name
-```
-
-You can see which projects exist/ are indexed with
-
-```
-attr search index project_id <project-name>
-```
-
-> Example for IPFS camp demo project
-
-```
-attr get --cid <CID> --attr project_id ipfs-camp-demo
-```
-
-## Example Workflow: Local CLI
 With the CLI you install on your local machine, you can use the commands, appended with `attr`, including `get`, `set`, `search`, and `export`. Note that you cannot encrypt or inspect encrypted attributes.
 
-_Unless you set it up differently, all commands will should be run in the folder where the binary is installed appended by `./starling`_
+Check what commands and modifiers you have available in each `attr` command, which consist of either `[get, set, search, export]`
 
-Check what commands and modifiers you have available in each command:
+If you type in 
 ```
-attr [get, set, search, export]
-```
+./starling attr get
+``` 
+You can see all the commands you can append to `get`
 
-To explore a certain file that you saw listed from the index, search by  _You will get a CID as output_
+### Get Examples 
+Lets explore the individual attributes of one of the assets:
 
+1. See when something was created 
 ```
-attr search index file_name 'patanal_19.jpg'
-```
-
-Once you have the CID you can use the other commands to explore propoerties or 'attributes' of this piece of media
-
-Search by the `asset_origin_id` to see a listing of paths. The path shows you which project, and type of content you have.
-```
-./starling attr search index asset_origin_id
-...
-/ipfs-camp-demo/proofmode-0x5b2c9a2821cea15a-2024-07-02-11-07-09gmt-05:00.zip/img_20240702_110659.jpg
+./starling attr get --attr time_created <CID>
 ```
 
-
-## Example Workflow: Exploring expanded capabilities with the Starling server
-If you establish an authenticated SSH connection within the Starling server, you have access to an expanded set of commands, appended with `file`, including `decrypt`, `encrypt`, `cid`, `c2pa`, `register`(on chain), `upload`, 
-
-### Proofmode Files
-When a proofmode 'bundle' (zip file) is uploaded to the Starling Integrity V2 Backend, the image is extracted from the bundle, and the other items, such as the .crt and .pubkey
-Exploring attributes of proofmode bundle
-
- 1. Get the CID of a file you know is a proofmode image
+2. To find the file name of an asset with a given CID use: 
 ```
-./starling attr search index file_name img_20240702_110659.jpg
-```
- 2. Next, view the atttributes of a given piece of content
-```
-starling attr search attr <CID>
-```
- 3. explore the values of specific attributes
-```
-starling attr get --attr <attribute> <CID>
+./starling attr get --cid <CID> --attr file_name
 ```
 
- 4. OR explore all the values of all the attributes
-```
-starling attr get --all <CID>
-```
+Looking at some examples, lets explore the output of a Proofmode file
 
-> To see the contents of a proofmode bundle (which is encrypted) you will need to add the `--encrypted` flag to the command to the get command -- This must be done on the server
-
+1. First verify that a given CID is a Proofmode file
 ```
-./starling attr get --attr proofmode --encrypted <CID>
+./starling attr get --attr asset_origin_type bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4
 ```
 
-_Since the key is on the server, we can only get this when we are on starling server_
-
-
-### Adding C2PA Manifests
-To add a manifest, we need to start with a template (on server at `integrity-data/c2pa_tmpls/ipfs_camp.json`). the global location for template is in `integrity-data/c2pa_tmpls/`
+2. This was originally a proofmode file, however, there is an image and metadata, so if you look at what type of file is stored in Authenticated Attributes you see this CID is the identifier for ...
 ```
-{
-  "ta_url": "http://timestamp.digicert.com",
-  "claim_generator": "Starling Lab Integrity v2",
-  "assertions": [
-    {
-      "label": "starling.file",
-      "data": {
-		"file_name": "{{file_name}}"
-      }
-    }
-  ]
-}
-
+./starling attr get --attr media_type bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4 
 ```
-The `{{file_name}}` will be replaced with the attribute "file_name" if it exists
+..A jpeg image that was extracted from the proofmode bundle
 
-*Preview the C2PA Manifest*
-`starling file c2pa -dry-run --manifest ipfs_camp <CID>`
-
-Now add the C2PA manifest
-`starling file c2pa --manifest ipfs_camp`
-> Output
->Injected file stored at /home/sysadmin/integrity-data/files/bafybeid7nmgu3ivrakzcygjl6mnycvfkzitqq2wyhdonkkh2kwe2itc6um
->Logged C2PA export and relationship to AuthAttr to the respective attributes: c2pa_exports, children
-
-Take a look at the new CID created with `starling attr get --all <New CID>`
-You should get something like
+Now lets look at a blockchain registration:
 ```
-{
-  "parents": {
-    "derived": [
-      "CID(bafybeiberuwy65k3t3dyny2zmnzqlbi5qyhhiucpbshzivhragc4zwqfji)"
-    ]
-  }
-}
+./starling attr get --attr registrations bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4 
 ```
-Retrieve the parent, and inspect the new `c2pa_exports` attribute `starling attr get --attr c2pa_exports bafybeiberuwy65k3t3dyny2zmnzqlbi5qyhhiucpbshzivhragc4zwqfji` you will get the c2pa manifest.
-
-```
-[
-  {
-    "cid": "CID(bafybeid7nmgu3ivrakzcygjl6mnycvfkzitqq2wyhdonkkh2kwe2itc6um)",
-    "manifest": "ipfs_camp",
-    "timestamp": "2024-07-03T14:17:57Z"
-  }
-]
-```
-
-## Registering Assets On-Chain 
-You will need tokens for this, currently the Starling Server. We use the Numbers API to register on numbers, avalanche, or near
-
-Lets try a 'dry run' on the numbers testnet. use the flag `-on number` and `-testnet`
-```
-starling file register -dry-run -on numbers -testnet CID
-```
-_output_
->{
-  "abstract": null,
-  "assetCid": "bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4",
-  "assetCreator": "Starling Lab",
-  "assetSha256": "37867502fecf6e0ade0b9bfc8b539b34a9ed2b9aab952170a2def34345824ca2",
-  "assetTimestampCreated": 1719918419,
-  "custom": {
-    "": null
-  },
-  "encodingFormat": "image/jpeg",
-  "headline": null,
-  "testnet": true
-}
-
-Now we can register on the testnet for real
-```
-starling file register -on numbers <CID>
-```
-_output example_
-> `{"txHash":"0x142db493c4cb704106a8d5a3d29409f8f144f26d2c4aa23182ce8a48ea8a8943","assetCid":"bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4","assetTreeCid":"bafkreigzzqberl452vdmontyorchtd2eeiepkhf6b7tvya2asjsqdbeidq","order_id":"0c35413b-e178-41e9-9e0f-844ac68a0d19"}`
-
-We can go to the near testnet block explorer, and search by `"txHash"`
-
-> Note that testnet registrations aren't logged in Authenticated Attributes
-
-* `"txHash"` is the transaction on numbers, you can explore it with [https://testnet.nearblocks.io/](https://testnet.nearblocks.io/) (testnet) or mainnet [https://nearblocks.io/](https://nearblocks.io/)
-* `"Assetcid"` is the same CID that we had generated
-* `"assetTreeCid"` is the manifest saved on IPFS. Use the gateway `https://ipfs-pin.numbersprotocol.io/ipfs` + the CID from `" the output. [Example](https://ipfs-pin.numbersprotocol.io/ipfs/bafkreigzzqberl452vdmontyorchtd2eeiepkhf6b7tvya2asjsqdbeidq) 
-
-Now we can search and see the new attrbute
-
-```
-starling attr get --attr registrations  bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4
-```
-
-```
-[
-  {
-    "attrs": [
-      ""
-    ],
-    "chain": "near",
-    "data": {
-      "assetCid": "bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4",
-      "assetTreeCid": "bafkreigzzqberl452vdmontyorchtd2eeiepkhf6b7tvya2asjsqdbeidq",
-      "order_id": "2abd48f7-6369-442d-8144-f24f36aa7c10",
-      "txHash": "0xd7bb74b5c63c799ec5583a7144839fac78d95b86dae2e5589fa3794e77a7cae5"
-    }
-  }
-]
-```
-
-
-### Notes
-*_Encryption_*
-
-What gets encrypted? Just the Proofmode PGP key, and whatever user (on server only) sepcifies should be encrypted.
-
-_Example_: Set the description attribute as encrypted for an asset with a given `<CID>` 
-```
-./starling attr set --attr description --str 'My secret description' --encrypted <CID>
-```
-
-SSH into starling Server
-```
-ssh sysadmin@142.93.149.155
-```
-> note that you append commands with `starling` not like in local CLI `./starling`
-
-Conventions
-starling <group> (attr or  file) command - modifier <CID>
-
-#### CLI tool list
-- Group: `attr` (remote/network)
-  - `get`: get attributes in the Authenticated Attributes database
-  - `set`: set attributes in the Authenticated Attributes database
-  - `search`: search attributes, CIDs, and the index
-  - `export`: export a single attestation as a file in various formats
-- Group: `file` (server-only)
-  - `decrypt`: decrypt an encrypted file
-  - `encrypt`: encrypt a file already stored in the system
-  - `cid`: calculate a CIDv1 for a file
-  - `c2pa`: inject a file with AA metadata using C2PA
-  - `register`: register a file with a third-party blockchain
-  - `upload`: upload a file to a third-party storage provider
-- `genkey`: create a cryptographic key for use with Authenticated Attributes
-
-To see all off the commands & modifiers use `starling attr set` or `starling file c2pa`
+You can see this is registered on the Near blockchain
