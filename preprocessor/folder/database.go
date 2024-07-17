@@ -8,36 +8,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	db "github.com/starlinglab/integrity-v2/database"
+	"github.com/starlinglab/integrity-v2/preprocessor/common"
 )
-
-// initFileStatusTableIfNotExists creates the file_status table if it does not exist
-func initFileStatusTableIfNotExists(connPool *pgxpool.Pool) error {
-	_, err := connPool.Exec(
-		db.GetDatabaseContext(),
-		fileStatusTableSchema,
-	)
-	return err
-}
-
-// initFileStatusTableIfNotExists creates the project_metadata table if it does not exist
-func initProjectDataTableIfNotExists(connPool *pgxpool.Pool) error {
-	_, err := connPool.Exec(
-		db.GetDatabaseContext(),
-		PROJECT_METADATA_TABLE,
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 // initDbTableIfNotExists initializes the database tables if they do not exist
 func initDbTableIfNotExists(connPool *pgxpool.Pool) error {
-	err := initFileStatusTableIfNotExists(connPool)
-	if err != nil {
-		return err
-	}
-	err = initProjectDataTableIfNotExists(connPool)
+	_, err := connPool.Exec(
+		db.GetDatabaseContext(),
+		fileStatusTableSchema+projectMetadataTable+allowedKeysTable,
+	)
 	return err
 }
 
@@ -71,6 +50,28 @@ func queryAllProjects(connPool *pgxpool.Pool) ([]*ProjectQueryResult, error) {
 		}
 		if fileExtensionsString != "" {
 			row.FileExtensions = strings.Split(fileExtensionsString, ",")
+		}
+		result = append(result, &row)
+	}
+	return result, nil
+}
+
+func queryAllowedKeys(connPool *pgxpool.Pool, projectId, keyType string) ([]*common.AllowedKey, error) {
+	var result []*common.AllowedKey
+	rows, err := connPool.Query(
+		db.GetDatabaseContext(),
+		"SELECT key, name FROM allowed_keys WHERE project_id=$1 AND key_type=$2",
+		projectId, keyType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var row common.AllowedKey
+		err = rows.Scan(&row.Key, &row.Name)
+		if err != nil {
+			return nil, err
 		}
 		result = append(result, &row)
 	}

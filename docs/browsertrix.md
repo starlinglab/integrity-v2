@@ -10,12 +10,12 @@ After getting the JWT, set `Authorization: Bearer ${JWT}` when accessing authent
 
 ## Login
 
-POST `https://app.browsertrix.com//api/auth/jwt/login`
+POST `https://app.browsertrix.com/api/auth/jwt/login`
 
 Use your account username and password to exchange for JWT
 
 ```
-curl --location 'https://app.browsertrix.com//api/auth/jwt/login' \
+curl --location 'https://app.browsertrix.com/api/auth/jwt/login' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
 --header 'Accept: application/json' \
 --data-urlencode 'username=<string>' \

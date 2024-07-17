@@ -1,7 +1,7 @@
 package folder
 
 // schema for file_status table
-var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
+const fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 		id BIGSERIAL PRIMARY KEY,
 		file_path TEXT UNIQUE NOT NULL,
 		status TEXT NOT NULL DEFAULT '',
@@ -15,7 +15,7 @@ var fileStatusTableSchema = `CREATE TABLE IF NOT EXISTS file_status (
 `
 
 // schema for project_metadata table
-var PROJECT_METADATA_TABLE = `CREATE TABLE IF NOT EXISTS project_metadata (
+const projectMetadataTable = `CREATE TABLE IF NOT EXISTS project_metadata (
 	id BIGSERIAL PRIMARY KEY,
 	project_id TEXT UNIQUE NOT NULL,
 	project_path TEXT UNIQUE NOT NULL,
@@ -26,3 +26,11 @@ var PROJECT_METADATA_TABLE = `CREATE TABLE IF NOT EXISTS project_metadata (
 );
 CREATE INDEX IF NOT EXISTS idx_project_metadata_project_id ON project_metadata (project_id);
 `
+
+const allowedKeysTable = `CREATE TABLE IF NOT EXISTS allowed_keys (
+	id BIGSERIAL PRIMARY KEY,
+	project_id TEXT NOT NULL,
+	key_type TEXT NOT NULL,
+	key TEXT NOT NULL,
+	name TEXT NOT NULL
+);`

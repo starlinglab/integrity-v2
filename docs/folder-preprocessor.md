@@ -53,6 +53,26 @@ This table stores all files that are found and match the criteria.
 | created_at | The time the file is first found.                                                                                             |
 | updated_at | The time of the last status update.                                                                                           |
 
+#### Allowed keys
+
+This table contains public keys that are accepted for verification by the preprocessor. This table must be filled out, otherwise no signed content will be verified. Unsigned content such as regular files are always accepted however.
+
+| Column     | Description                                   |
+| ---------- | --------------------------------------------- |
+| id         | Auto-increment unique ID, not used by humans. |
+| project_id | Project ID the key applies to                 |
+| key_type   | The kind of key this is: `proofmode`, `wacz`  |
+| key        | Actual text of the key                        |
+| name       | Name for the key, like "John Doe's iPhone"    |
+
+For `proofmode`, the value of `key` must be the fingerprint of the user's PGP public signing key, such as `6C7EE1B8621CC013` or `0xdf414b25e818cd46`. Note how case doesn't matter, and optionally a prefix of `0x` is accepted.
+
+For `wacz`, the value of `key` must be the public key of the WACZ anonymous signer, which is PEM-encoded. This can be found within the `.wacz` ZIP, under `datapackage-digest.json`, under `signedData.publicKey`. An example public key would look like:
+
+```
+MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEdyJB4zGpvCzhNblldx8b12sz+ECGk8Ryq4y+bg9woRu3OSKWO2uS+n8CD258iVvg0hP0JRg4C7YxGc7lqGsI9bHj0NaC9b4NXazeuR80iVCg96oTYIOLdWcII9rfaFMU
+```
+
 ## Usage
 
 When the preprocessor is first launched, it will scan all `project_paths` under the sync root folder. Any files found and matching the handling criteria will be processed.

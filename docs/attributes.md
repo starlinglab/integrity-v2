@@ -34,6 +34,7 @@ The majority of these attributes are set automatically upon ingestion, but all c
 - `author`: https://schema.org/author
 - `project_id`: the name for the project this asset was ingested under
 - `project_path`: the path for the project within the sync folder
+- `asset_origin_sig_key_name`: may exist if the ingestion process involved verifiying a known, named public key
 
 Encrypted files have the `encryption_type` attribute, currently always set to `secretstream`. See [encryption.md](./encryption.md) for more info.
 

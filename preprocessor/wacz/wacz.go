@@ -1,4 +1,4 @@
-package util
+package wacz
 
 import (
 	"archive/zip"
@@ -26,6 +26,7 @@ import (
 
 	"github.com/digitorus/pkcs7"
 	timestamp "github.com/digitorus/timestamp"
+	"github.com/starlinglab/integrity-v2/preprocessor/common"
 )
 
 type signature struct {
@@ -70,6 +71,7 @@ type WaczFileData struct {
 	DigestData  *waczDigestData
 	PackageData *waczPackageData
 	UserAgent   string
+	KeyName     string
 }
 
 // SHA-256 fingerprints of CA certs for Timestamp Authorities we trust
@@ -360,7 +362,7 @@ func CheckIsWaczFile(filePath string) bool {
 }
 
 // ReadAndVerifyWaczMetadata reads and verifies the metadata of a wacz file.
-func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
+func ReadAndVerifyWaczMetadata(filePath string, anonKeys, domains []*common.AllowedKey) (*WaczFileData, error) {
 	zipListing, err := zip.OpenReader(filePath)
 	if err != nil {
 		return nil, err
@@ -428,18 +430,44 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 	}
 
 	verified := false
+	var keyName string
 
 	if digestData.SignedData.PublicKey != "" {
+		// Check public key is in allow-list
+		foundKey := false
+		for _, k := range anonKeys {
+			if k.Key == digestData.SignedData.PublicKey {
+				keyName = k.Name
+				foundKey = true
+				break
+			}
+		}
+		if !foundKey {
+			return nil, fmt.Errorf("wacz public key was not in allow-list")
+		}
+
 		pubKey, err := base64.StdEncoding.DecodeString(digestData.SignedData.PublicKey)
 		if err != nil {
 			return nil, err
 		}
-
 		verified, err = verifyAnonymousSignature(digestData.SignedData.Hash, metadataSignature, pubKey)
 		if err != nil {
 			return nil, err
 		}
 	} else if digestData.SignedData.Domain != "" {
+		// Check domain is in allow-list
+		foundKey := false
+		for _, k := range domains {
+			if k.Key == digestData.SignedData.Domain {
+				keyName = k.Name
+				foundKey = true
+				break
+			}
+		}
+		if !foundKey {
+			return nil, fmt.Errorf("wacz signer domain was not in allow-list")
+		}
+
 		if digestData.SignedData.DomainCert == "" {
 			return nil, fmt.Errorf("missing domain cert")
 		}
@@ -480,12 +508,13 @@ func ReadAndVerifyWaczMetadata(filePath string) (*WaczFileData, error) {
 		DigestData:  &digestData,
 		PackageData: &packageData,
 		UserAgent:   userAgent,
+		KeyName:     keyName,
 	}, nil
 }
 
-func GetVerifiedMetadata(filePath string) (map[string]any, error) {
+func GetVerifiedMetadata(filePath string, anonKeys, domains []*common.AllowedKey) (map[string]any, error) {
 	mediaType := "application/wacz"
-	metadata, err := ReadAndVerifyWaczMetadata(filePath)
+	metadata, err := ReadAndVerifyWaczMetadata(filePath, anonKeys, domains)
 	if err != nil {
 		return nil, err
 	}
@@ -512,12 +541,13 @@ func GetVerifiedMetadata(filePath string) (map[string]any, error) {
 		}
 	}
 	waczMetadata := map[string]any{
-		"last_modified":     metadata.PackageData.Modified,
-		"time_created":      metadata.PackageData.Created,
-		"media_type":        mediaType,
-		"asset_origin_type": []string{"wacz"},
-		"crawl_user_agent":  metadata.UserAgent,
-		"wacz":              wacz,
+		"last_modified":             metadata.PackageData.Modified,
+		"time_created":              metadata.PackageData.Created,
+		"media_type":                mediaType,
+		"asset_origin_type":         []string{"wacz"},
+		"crawl_user_agent":          metadata.UserAgent,
+		"wacz":                      wacz,
+		"asset_origin_sig_key_name": metadata.KeyName,
 	}
 	return waczMetadata, nil
 }

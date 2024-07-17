@@ -16,6 +16,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/preprocessor/common"
 	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
 	"github.com/starlinglab/integrity-v2/util"
 )
@@ -256,7 +257,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath)
+	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains)
 	if err != nil {
 		log.Printf("Failed to get metadata: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/preprocessor/common"
 	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
 	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
 	"github.com/starlinglab/integrity-v2/webhook"
@@ -34,8 +35,8 @@ func getAssetOriginRoot(filePath string) string {
 }
 
 // getProofModeFileMetadatas reads a proofmode file and returns a list of metadata
-func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
-	assets, err := proofmode.ReadAndVerifyMetadata(filePath)
+func getProofModeFileMetadatas(filePath string, keys []*common.AllowedKey) ([]map[string]any, error) {
+	assets, err := proofmode.ReadAndVerifyMetadata(filePath, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -65,14 +66,17 @@ func getProofModeFileMetadatas(filePath string) ([]map[string]any, error) {
 					"gst":       string(asset.Gst),
 				},
 			},
+			"asset_origin_sig_key_name": asset.KeyName,
 		}
 		metadatas = append(metadatas, metadata)
 	}
 	return metadatas, nil
 }
 
-func getWaczFileMetadata(filePath string) (map[string]any, error) {
-	metadata, err := wacz.GetVerifiedMetadata(filePath)
+func getWaczFileMetadata(
+	filePath string, anonKeys, domains []*common.AllowedKey,
+) (map[string]any, error) {
+	metadata, err := wacz.GetVerifiedMetadata(filePath, anonKeys, domains)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +183,14 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 	metadatas := []map[string]any{}
 	switch fileType {
 	case "proofmode":
-		metadatas, err = getProofModeFileMetadatas(filePath)
+		keys, err := queryAllowedKeys(pgPool, project.ProjectId, "proofmode")
+		if err != nil {
+			return "", fmt.Errorf("error getting proofmode allowed keys: %w", err)
+		}
+		if len(keys) == 0 {
+			return "", fmt.Errorf("no proofmode allowed keys set in database")
+		}
+		metadatas, err = getProofModeFileMetadatas(filePath, keys)
 		if err != nil {
 			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
 				log.Println("error setting file status to error:", err)
@@ -187,6 +198,14 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			return "", fmt.Errorf("error getting proofmode file metadatas: %v", err)
 		}
 	case "wacz":
+		anonKeys, err := queryAllowedKeys(pgPool, project.ProjectId, "wacz")
+		if err != nil {
+			return "", fmt.Errorf("error getting wacz allowed keys: %w", err)
+		}
+		if len(anonKeys) == 0 {
+			log.Println("warning: no wacz anonymous public keys set in database")
+		}
+
 		fileMetadata, err := getFileMetadata(filePath, mediaType)
 		if err != nil {
 			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
@@ -194,7 +213,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			}
 			return "", fmt.Errorf("error getting file metadata: %v", err)
 		}
-		waczMetadata, err := getWaczFileMetadata(filePath)
+		waczMetadata, err := getWaczFileMetadata(filePath, anonKeys, common.BrowsertrixSigningDomains)
 		if err != nil {
 			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
 				log.Println("error setting file status to error:", err)

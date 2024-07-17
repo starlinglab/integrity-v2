@@ -1,4 +1,4 @@
-package util
+package proofmode
 
 import (
 	"archive/zip"
@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"path/filepath"
 
 	"lukechampine.com/blake3"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/starlinglab/integrity-v2/preprocessor/common"
 )
 
 type ProofModeAssetMetadata struct {
@@ -40,14 +42,18 @@ type ProofModeFileData struct {
 	FileSize          uint64
 	MediaType         string
 	Metadata          *ProofModeAssetMetadata
+	KeyName           string
 }
 
 // validateAndParseProofModeFileSignatures reads a file and verify
 // its asset and metadata hash and signature
-func validateAndParseFileSignatures(fileMap map[string]*zip.File, fileName string, fileSha string, jsonMetadataBytes []byte) (
-	*ProofModeFileData,
-	error,
-) {
+func validateAndParseFileSignatures(
+	fileMap map[string]*zip.File,
+	fileName string,
+	fileSha string,
+	jsonMetadataBytes []byte,
+	keys []*common.AllowedKey,
+) (*ProofModeFileData, error) {
 	// read key
 	keyFile, err := fileMap["pubkey.asc"].Open()
 	if err != nil {
@@ -58,10 +64,27 @@ func validateAndParseFileSignatures(fileMap map[string]*zip.File, fileName strin
 	if err != nil {
 		return nil, err
 	}
-	// TODO: check key against db https://github.com/starlinglab/integrity-v2/issues/25
 	keyRing, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(keyFileBytes))
 	if err != nil {
 		return nil, err
+	}
+
+	// Check key fingerprint against allow-list
+	fp := keyRing[0].PrimaryKey.KeyIdString()
+	var keyName string
+	foundKey := false
+	for _, k := range keys {
+		if len(k.Key) == 18 {
+			k.Key = strings.TrimPrefix(k.Key, "0x")
+		}
+		if strings.ToUpper(k.Key) == fp {
+			foundKey = true
+			keyName = k.Name
+			break
+		}
+	}
+	if !foundKey {
+		return nil, fmt.Errorf("proofmode public key was not on allow-list")
 	}
 
 	// read asset signature
@@ -184,6 +207,7 @@ func validateAndParseFileSignatures(fileMap map[string]*zip.File, fileName strin
 		FileSize:          fileSize,
 		MediaType:         mediaType,
 		Metadata:          nil,
+		KeyName:           keyName,
 	}
 
 	return &fileData, nil
@@ -247,7 +271,7 @@ func GetMapOfZipFiles(zipListing *zip.ReadCloser) (map[string]*zip.File, [][]byt
 
 // ReadAndVerifyProofModeMetadata reads and verifies a proof mode file
 // and returns its metadata
-func ReadAndVerifyMetadata(filePath string) ([]*ProofModeFileData, error) {
+func ReadAndVerifyMetadata(filePath string, keys []*common.AllowedKey) ([]*ProofModeFileData, error) {
 	zipListing, err := zip.OpenReader(filePath)
 	if err != nil {
 		return nil, err
@@ -266,7 +290,9 @@ func ReadAndVerifyMetadata(filePath string) ([]*ProofModeFileData, error) {
 			return nil, err
 		}
 		filename := filepath.Base(metadata.FilePath)
-		assetData, err := validateAndParseFileSignatures(fileMap, filename, metadata.Sha256, jsonFileBytes)
+		assetData, err := validateAndParseFileSignatures(
+			fileMap, filename, metadata.Sha256, jsonFileBytes, keys,
+		)
 		if err != nil {
 			return nil, err
 		}
