@@ -24,7 +24,7 @@ All data is natively stored in DAG-CBOR encoding.
 The majority of these attributes are set automatically upon ingestion, but all can be overrided manually later if needed.
 
 - Hashes (hex strings): `sha256`, `blake3`, `md5`
-- File info (from file preprocessor) `file_name`, `file_size`, `last_modified`
+- File info: `file_name`, `file_size`, `last_modified`
 - `time_created`: when the asset was originally created
 - `description`: human description added manually
 - `name`: human name added manually

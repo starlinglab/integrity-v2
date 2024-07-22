@@ -540,8 +540,15 @@ func GetVerifiedMetadata(filePath string, anonKeys, domains []*common.AllowedKey
 			"software":      metadata.PackageData.Software,
 		}
 	}
+
+	// WACZs from Browsertrix don't seem to have the "modified" set, so replace it here
+	modified := metadata.PackageData.Modified
+	if modified.IsZero() {
+		modified = metadata.PackageData.Created
+	}
+
 	waczMetadata := map[string]any{
-		"last_modified":             metadata.PackageData.Modified,
+		"last_modified":             modified,
 		"time_created":              metadata.PackageData.Created,
 		"media_type":                mediaType,
 		"asset_origin_type":         []string{"wacz"},

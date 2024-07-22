@@ -147,11 +147,6 @@ func getCrawlInfo(orgId, crawlId string) (*CrawlInfoResponse, error) {
 	return &value, nil
 }
 
-type CrawlMetadata struct {
-	AssetOriginId string
-	ProjectId     string
-}
-
 func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	webhookSecret := r.URL.Query().Get("s")
 	if webhookSecret != config.GetConfig().Browsertrix.WebhookSecret {
@@ -172,23 +167,23 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if e.Event != "crawlFinished" {
-		log.Printf("Received event %s, ignoring", e.Event)
+		log.Printf("browsertrix: received event %s, ignoring", e.Event)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 	if e.Resources == nil || len(e.Resources) == 0 {
-		log.Printf("Missing resources, ignoring")
+		log.Printf("browsertrix: missing resources, ignoring")
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "missing resources"})
 	}
 
 	crawlInfo, err := getCrawlInfo(e.OrgID, e.ItemID)
 	if err != nil {
-		log.Printf("Failed to get crawl info: %s", err.Error())
+		log.Printf("browsertrix: failed to get crawl info: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
-	var crawlMetadata CrawlMetadata
+	var projectId string
 	for _, tag := range crawlInfo.Tags {
 		split := strings.Split(tag, ":")
 		if len(split) != 2 {
@@ -196,14 +191,12 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		}
 		key := split[0]
 		value := split[1]
-		if key == "asset_origin_id" {
-			crawlMetadata.AssetOriginId = value
-		} else if key == "project_id" {
-			crawlMetadata.ProjectId = value
+		if key == "project_id" {
+			projectId = value
 		}
 	}
-	if crawlMetadata.ProjectId == "" {
-		log.Printf("Missing projectId tag, ignoring")
+	if projectId == "" {
+		log.Printf("browsertrix: missing projectId tag, ignoring")
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "missing assetOrigin tag"})
 		return
 	}
@@ -211,13 +204,13 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	waczUrl := e.Resources[0].Path
 	resp, err := client.Get(waczUrl)
 	if err != nil {
-		log.Printf("Failed to download wacz: %s", err.Error())
+		log.Printf("browsertrix: failed to download wacz: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Failed to download wacz: %s", resp.Status)
+		log.Printf("browsertrix: failed to download wacz: %s", resp.Status)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "failed to download wacz"})
 		return
 	}
@@ -230,7 +223,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 
 	tempFile, err := os.CreateTemp(util.TempDir(), "browsertrix-webhook_")
 	if err != nil {
-		log.Printf("Failed to create temp file: %s", err.Error())
+		log.Printf("browsertrix: failed to create temp file: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
@@ -240,32 +233,33 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 
 	cid, fileAttributes, err := getFileAttributesAndWriteToDest(resp.Body, tempFile)
 	if err != nil {
-		log.Printf("Failed to write wacz to temp file: %s", err.Error())
+		log.Printf("browsertrix: failed to write wacz to temp file: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
 	if fileAttributes["sha256"] != e.Resources[0].Hash {
-		log.Printf("Hash mismatch: %s != %s", fileAttributes["sha256"], e.Resources[0].Hash)
+		log.Printf("browsertrix: hash mismatch: %s != %s", fileAttributes["sha256"], e.Resources[0].Hash)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "hash mismatch"})
 		return
 	}
 
 	if fileAttributes["file_size"].(int64) != e.Resources[0].Size {
-		log.Printf("Size mismatch: %d != %d", fileAttributes["file_size"], e.Resources[0].Size)
+		log.Printf("browsertrix: size mismatch: %d != %d", fileAttributes["file_size"], e.Resources[0].Size)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "size mismatch"})
 		return
 	}
 
 	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains)
 	if err != nil {
-		log.Printf("Failed to get metadata: %s", err.Error())
+		log.Printf("browsertrix: failed to get metadata: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	metadataMap["asset_origin_id"] = crawlMetadata.AssetOriginId
+	metadataMap["asset_origin_id"] = e.Resources[0].CrawlID
 	metadataMap["asset_origin_type"] = []string{"wacz"}
-	metadataMap["project_id"] = crawlMetadata.ProjectId
+	metadataMap["project_id"] = projectId
+	metadataMap["file_name"] = e.Resources[0].Name
 
 	err = util.MoveFile(tempFilePath, filepath.Join(outputDirectory, cid))
 	if err != nil {
@@ -275,16 +269,18 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 
 	attributes, err := ParseMapToAttributes(cid, metadataMap, fileAttributes)
 	if err != nil {
-		log.Println("error parsing attributes:", err)
+		log.Println("browsertrix: error parsing attributes:", err)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	err = aa.SetAttestations(cid, true, attributes)
 	if err != nil {
-		log.Println("error setting attestations:", err)
+		log.Println("browsertrix: error setting attestations:", err)
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
+
+	log.Printf("browsertrix: processed with CID %s", cid)
 }

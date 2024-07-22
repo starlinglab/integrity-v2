@@ -14,7 +14,7 @@ POST `https://app.browsertrix.com/api/auth/jwt/login`
 
 Use your account username and password to exchange for JWT
 
-```
+```bash
 curl --location 'https://app.browsertrix.com/api/auth/jwt/login' \
 --header 'Content-Type: application/x-www-form-urlencoded' \
 --header 'Accept: application/json' \
@@ -24,10 +24,10 @@ curl --location 'https://app.browsertrix.com/api/auth/jwt/login' \
 
 Response:
 
-```
+```json
 {
-"access_token": "string",
-"token_type": "string"
+  "access_token": "string",
+  "token_type": "string"
 }
 ```
 
@@ -37,14 +37,14 @@ GET `https://app.browsertrix.com/api/orgs`
 
 List organization to receive the organization ID needed for API calls
 
-```
+```bash
 curl --location 'https://app.browsertrix.com/api/orgs' \
 --header 'Authorization: Bearer <jwt>
 ```
 
 Response:
 
-```
+```json
 {
     "items": [
         {
@@ -66,10 +66,10 @@ POST `https://app.browsertrix.com/api/orgs/<org-id>/event-webhook-urls`
 
 Set the set of webhook URLs to be used for all crawls in an organization
 
-```
+```bash
 curl --location 'https://app.browsertrix.com/api/orgs/<org-id>/event-webhook-urls' \
 --header 'Content-Type: application/json' \
---header 'Authorization: Bearer <jwt>
+--header 'Authorization: Bearer <jwt>' \
 --data '{
   "crawlStarted": "<webhook-url>",
   "crawlFinished": "<webhook-url>",
@@ -84,8 +84,8 @@ curl --location 'https://app.browsertrix.com/api/orgs/<org-id>/event-webhook-url
 
 Response:
 
-```
+```json
 {
-    "updated": true
+  "updated": true
 }
 ```
