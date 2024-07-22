@@ -260,6 +260,9 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	metadataMap["asset_origin_type"] = []string{"wacz"}
 	metadataMap["project_id"] = projectId
 	metadataMap["file_name"] = e.Resources[0].Name
+	metadataMap["crawl_workflow_name"] = crawlInfo.Name
+	metadataMap["crawl_workflow_description"] = crawlInfo.Description
+	metadataMap["crawl_workflow_tags"] = crawlInfo.Tags
 
 	err = util.MoveFile(tempFilePath, filepath.Join(outputDirectory, cid))
 	if err != nil {
