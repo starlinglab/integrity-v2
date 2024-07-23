@@ -213,7 +213,7 @@ func handleNewFile(pgPool *pgxpool.Pool, filePath string, project *ProjectQueryR
 			}
 			return "", fmt.Errorf("error getting file metadata: %v", err)
 		}
-		waczMetadata, err := getWaczFileMetadata(filePath, anonKeys, common.BrowsertrixSigningDomains)
+		waczMetadata, err := getWaczFileMetadata(filePath, anonKeys, common.BrowsertrixSigningDomains())
 		if err != nil {
 			if err := setFileStatusError(pgPool, filePath, err.Error()); err != nil {
 				log.Println("error setting file status to error:", err)

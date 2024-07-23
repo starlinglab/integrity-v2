@@ -250,7 +250,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains)
+	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains())
 	if err != nil {
 		log.Printf("browsertrix: failed to get metadata: %s", err.Error())
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

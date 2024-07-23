@@ -13,18 +13,16 @@ type AllowedKey struct {
 
 // BrowsertrixSigningDomains from config file, using default of "signing.app.browsertrix.com"
 // if nothing is specified in config.
-var BrowsertrixSigningDomains []*AllowedKey = nil
-
-func init() {
+func BrowsertrixSigningDomains() []*AllowedKey {
 	sds := config.GetConfig().Browsertrix.SigningDomains
 	if len(sds) > 0 {
-		BrowsertrixSigningDomains = make([]*AllowedKey, len(sds))
+		bsd := make([]*AllowedKey, len(sds))
 		for i, sd := range sds {
-			BrowsertrixSigningDomains[i] = &AllowedKey{Key: sd, Name: sd}
+			bsd[i] = &AllowedKey{Key: sd, Name: sd}
 		}
-	} else {
-		BrowsertrixSigningDomains = []*AllowedKey{
-			{Key: "signing.app.browsertrix.com", Name: "signing.app.browsertrix.com"},
-		}
+		return bsd
+	}
+	return []*AllowedKey{
+		{Key: "signing.app.browsertrix.com", Name: "signing.app.browsertrix.com"},
 	}
 }
