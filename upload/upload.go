@@ -70,7 +70,8 @@ For traditional storage providers, the path is always a directory.`)
 	if !ok {
 		fmt.Fprintf(
 			os.Stderr,
-			`remote '%s' is not yet set up in rclone. Please run "rclone config" to set it up.`,
+			`remote '%s' is not yet set up in rclone. Please run "rclone config" to set it up.`+
+				"\nSee also https://github.com/starlinglab/integrity-v2/blob/main/docs/syncing.md",
 			remote,
 		)
 		return fmt.Errorf("")

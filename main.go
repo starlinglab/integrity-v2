@@ -31,7 +31,7 @@ Remote/network commands:
     starling attr set
     starling attr export
     starling attr search
-	starling attr relate
+    starling attr relate
 
 Commands to run on the server:
     starling genkey
@@ -46,9 +46,9 @@ Further documentation on CLI tools is listed online:
 https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
 
 Other than that, services are included:
-	preprocessor-folder
-	webhook
-	sync
+    preprocessor-folder
+    webhook
+    sync
 
 And finally, the version or --version command will display the build version.`
 

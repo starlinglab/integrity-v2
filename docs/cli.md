@@ -21,7 +21,7 @@ Depending on how the binary is built, each CLI tool can either be called by runn
   - `register`: register a file with a third-party blockchain
   - `upload`: upload a file to a third-party storage provider
 - `genkey`: create a cryptographic key for use with Authenticated Attributes
-- `sync`: run `rclone sync` in a loop
+- `sync`: run `rclone sync` in a loop, see [syncing.md](./syncing.md)
 
 ## Example workflow
 
