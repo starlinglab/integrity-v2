@@ -12,6 +12,7 @@ Depending on how the binary is built, each CLI tool can either be called by runn
   - `set`: set attributes in the Authenticated Attributes database
   - `search`: search attributes, CIDs, and the index
   - `export`: export a single attestation as a file in various formats
+  - `relate`: add relationships between CIDs
 - Group: `file` (server-only)
   - `decrypt`: decrypt an encrypted file
   - `encrypt`: encrypt a file already stored in the system

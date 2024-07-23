@@ -13,6 +13,7 @@ import (
 	"github.com/starlinglab/integrity-v2/get"
 	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
 	"github.com/starlinglab/integrity-v2/register"
+	"github.com/starlinglab/integrity-v2/relate"
 	"github.com/starlinglab/integrity-v2/search"
 	"github.com/starlinglab/integrity-v2/set"
 	"github.com/starlinglab/integrity-v2/sync"
@@ -30,6 +31,7 @@ Remote/network commands:
     starling attr set
     starling attr export
     starling attr search
+	starling attr relate
 
 Commands to run on the server:
     starling genkey
@@ -75,6 +77,8 @@ func run(group string, args []string) (bool, error) {
 			err = search.Run(args)
 		case "export":
 			err = export.Run(args)
+		case "relate":
+			err = relate.Run(args)
 		default:
 			// Unknown command
 			return false, nil

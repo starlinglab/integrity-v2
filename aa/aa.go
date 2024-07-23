@@ -58,7 +58,7 @@ type AttEntry struct {
 }
 
 // Attributes for uploading.
-// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccid
+// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1ccid
 type PostKV struct {
 	Key    string `cbor:"key"`
 	Value  any    `cbor:"value"`
@@ -274,7 +274,7 @@ type singleSet[T bool | []byte] struct {
 
 // AppendAttestation appends to an array stored at attr.
 //
-// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-ccidattr
+// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1ccidattr
 func AppendAttestation(cid, attr string, val any) error {
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s/%s?append=1",
 		config.GetConfig().AA.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
@@ -319,7 +319,7 @@ type relBody struct {
 // relationType is the adjective to use, like "related".
 //
 // See AA docs for details:
-// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-relcid
+// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1relcid
 func AddRelationship(cid, relType, relationType, relCid string) error {
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/rel/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
@@ -357,7 +357,7 @@ func AddRelationship(cid, relType, relationType, relCid string) error {
 
 // IndexMatchQuery queries the AA index for any CIDs with the provided attribute-value pair.
 // See the API docs for more information:
-// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#get-i
+// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#get-v1i
 func IndexMatchQuery(attr, val, valType string) ([]string, error) {
 	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/v1/i")
 	if err != nil {
