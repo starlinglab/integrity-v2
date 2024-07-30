@@ -82,7 +82,7 @@ func GuessMediaType(path string) (string, error) {
 	defer f.Close()
 	header := make([]byte, 512)
 	n, err := f.Read(header)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return "", fmt.Errorf("error reading CID file: %w", err)
 	}
 	return http.DetectContentType(header[:n]), nil

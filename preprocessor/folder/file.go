@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,6 +15,7 @@ import (
 	"github.com/starlinglab/integrity-v2/preprocessor/common"
 	proofmode "github.com/starlinglab/integrity-v2/preprocessor/proofmode"
 	wacz "github.com/starlinglab/integrity-v2/preprocessor/wacz"
+	"github.com/starlinglab/integrity-v2/util"
 	"github.com/starlinglab/integrity-v2/webhook"
 )
 
@@ -109,17 +109,10 @@ func getFileMetadata(filePath string, mediaType string) (map[string]any, error) 
 // that we will handle differently
 func checkFileType(filePath string) (string, string, error) {
 	fileType := "generic" // default is generic
-	file, err := os.Open(filePath)
+	mediaType, err := util.GuessMediaType(filePath)
 	if err != nil {
 		return "", "", err
 	}
-	defer file.Close()
-	buffer := make([]byte, 512)
-	n, err := file.Read(buffer)
-	if err != nil {
-		return "", "", err
-	}
-	mediaType := http.DetectContentType(buffer[:n])
 	if mediaType == "application/zip" {
 		isProofMode := proofmode.CheckIsProofModeFile(filePath)
 		if isProofMode {
