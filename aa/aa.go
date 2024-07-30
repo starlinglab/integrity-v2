@@ -106,14 +106,46 @@ func init() {
 	}
 }
 
+type AuthAttrInstance struct {
+	Url  string
+	Jwt  string
+	Mock bool // No network requests go through if true
+}
+
+var defaultInstance *AuthAttrInstance = nil
+
+func GetAAInstanceFromConfig() *AuthAttrInstance {
+	if defaultInstance != nil {
+		return defaultInstance
+	}
+	defaultInstance = &AuthAttrInstance{
+		Url: config.GetConfig().AA.Url,
+		Jwt: config.GetConfig().AA.Jwt,
+	}
+	return defaultInstance
+}
+
 // GetAttestationRaw returns the raw bytes for the attribute from AA.
 //
 // If an encryption key was needed (to decrypt value for sig verify) but not provided
 // a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
 // exist in the database.
 func GetAttestationRaw(cid, attr string, opts GetAttOpts) ([]byte, error) {
+	return GetAAInstanceFromConfig().GetAttestationRaw(cid, attr, opts)
+}
+
+// GetAttestationRaw returns the raw bytes for the attribute from AA.
+//
+// If an encryption key was needed (to decrypt value for sig verify) but not provided
+// a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
+// exist in the database.
+func (a *AuthAttrInstance) GetAttestationRaw(cid, attr string, opts GetAttOpts) ([]byte, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s/%s",
-		config.GetConfig().AA.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
+		a.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +188,25 @@ func GetAttestationRaw(cid, attr string, opts GetAttOpts) ([]byte, error) {
 //
 // The Format fields of `opts` is ignored.
 func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
+	return GetAAInstanceFromConfig().GetAttestation(cid, attr, opts)
+}
+
+// GetAttestation returns the attestation for the provided attribute from AA.
+//
+// If an encryption key was needed (to decrypt value for sig verify) but not provided
+// a ErrNeedsKey is returned. ErrNotFound is returned if the CID-attribute pair doesn't
+// exist in the database.
+//
+// The Format fields of `opts` is ignored.
+func (a *AuthAttrInstance) GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
 	// Ignore format so CBOR is guaranteed
 	opts.Format = ""
 
-	data, err := GetAttestationRaw(cid, attr, opts)
+	data, err := a.GetAttestationRaw(cid, attr, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +220,16 @@ func GetAttestation(cid, attr string, opts GetAttOpts) (*AttEntry, error) {
 
 // GetAttestations returns all attestations for the provided CID from AA.
 func GetAttestations(cid string) (map[string]*AttEntry, error) {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
+	return GetAAInstanceFromConfig().GetAttestations(cid)
+}
+
+// GetAttestations returns all attestations for the provided CID from AA.
+func (a *AuthAttrInstance) GetAttestations(cid string) (map[string]*AttEntry, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s", a.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +260,15 @@ func GetAttestations(cid string) (map[string]*AttEntry, error) {
 }
 
 func SetAttestations(cid string, index bool, kvs []PostKV) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
+	return GetAAInstanceFromConfig().SetAttestations(cid, index, kvs)
+}
+
+func (a *AuthAttrInstance) SetAttestations(cid string, index bool, kvs []PostKV) error {
+	if a.Mock {
+		return nil
+	}
+
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s", a.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return err
 	}
@@ -224,7 +288,7 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/cbor")
-	req.Header.Add("Authorization", "Bearer "+config.GetConfig().AA.Jwt)
+	req.Header.Add("Authorization", "Bearer "+a.Jwt)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -240,7 +304,16 @@ func SetAttestations(cid string, index bool, kvs []PostKV) error {
 
 // GetCIDs returns a slice of all the CIDs stored in the database, as strings.
 func GetCIDs() ([]string, error) {
-	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/v1/cids")
+	return GetAAInstanceFromConfig().GetCIDs()
+}
+
+// GetCIDs returns a slice of all the CIDs stored in the database, as strings.
+func (a *AuthAttrInstance) GetCIDs() ([]string, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
+	url, err := urlpkg.Parse(a.Url + "/v1/cids")
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +349,19 @@ type singleSet[T bool | []byte] struct {
 //
 // See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1ccidattr
 func AppendAttestation(cid, attr string, val any) error {
+	return GetAAInstanceFromConfig().AppendAttestation(cid, attr, val)
+}
+
+// AppendAttestation appends to an array stored at attr.
+//
+// See https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1ccidattr
+func (a *AuthAttrInstance) AppendAttestation(cid, attr string, val any) error {
+	if a.Mock {
+		return nil
+	}
+
 	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/c/%s/%s?append=1",
-		config.GetConfig().AA.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
+		a.Url, urlpkg.PathEscape(cid), urlpkg.PathEscape(attr)))
 	if err != nil {
 		return err
 	}
@@ -292,7 +376,7 @@ func AppendAttestation(cid, attr string, val any) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/cbor")
-	req.Header.Add("Authorization", "Bearer "+config.GetConfig().AA.Jwt)
+	req.Header.Add("Authorization", "Bearer "+a.Jwt)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -321,7 +405,23 @@ type relBody struct {
 // See AA docs for details:
 // https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1relcid
 func AddRelationship(cid, relType, relationType, relCid string) error {
-	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/rel/%s", config.GetConfig().AA.Url, urlpkg.PathEscape(cid)))
+	return GetAAInstanceFromConfig().AddRelationship(cid, relType, relationType, relCid)
+}
+
+// AddRelationship adds a relationship to the database.
+//
+// relType must be either "children" or "parents".
+//
+// relationType is the adjective to use, like "related".
+//
+// See AA docs for details:
+// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#post-v1relcid
+func (a *AuthAttrInstance) AddRelationship(cid, relType, relationType, relCid string) error {
+	if a.Mock {
+		return nil
+	}
+
+	url, err := urlpkg.Parse(fmt.Sprintf("%s/v1/rel/%s", a.Url, urlpkg.PathEscape(cid)))
 	if err != nil {
 		return err
 	}
@@ -341,7 +441,7 @@ func AddRelationship(cid, relType, relationType, relCid string) error {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/cbor")
-	req.Header.Add("Authorization", "Bearer "+config.GetConfig().AA.Jwt)
+	req.Header.Add("Authorization", "Bearer "+a.Jwt)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -359,7 +459,18 @@ func AddRelationship(cid, relType, relationType, relCid string) error {
 // See the API docs for more information:
 // https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#get-v1i
 func IndexMatchQuery(attr, val, valType string) ([]string, error) {
-	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/v1/i")
+	return GetAAInstanceFromConfig().IndexMatchQuery(attr, val, valType)
+}
+
+// IndexMatchQuery queries the AA index for any CIDs with the provided attribute-value pair.
+// See the API docs for more information:
+// https://github.com/starlinglab/authenticated-attributes/blob/main/docs/http.md#get-v1i
+func (a *AuthAttrInstance) IndexMatchQuery(attr, val, valType string) ([]string, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
+	url, err := urlpkg.Parse(a.Url + "/v1/i")
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +509,17 @@ func IndexMatchQuery(attr, val, valType string) ([]string, error) {
 // IndexListQuery queries the AA index for any values that have been indexed for the
 // given attribute.
 func IndexListQuery(attr string) ([]string, error) {
-	url, err := urlpkg.Parse(config.GetConfig().AA.Url + "/v1/i")
+	return GetAAInstanceFromConfig().IndexListQuery(attr)
+}
+
+// IndexListQuery queries the AA index for any values that have been indexed for the
+// given attribute.
+func (a *AuthAttrInstance) IndexListQuery(attr string) ([]string, error) {
+	if a.Mock {
+		return nil, nil
+	}
+
+	url, err := urlpkg.Parse(a.Url + "/v1/i")
 	if err != nil {
 		return nil, err
 	}
