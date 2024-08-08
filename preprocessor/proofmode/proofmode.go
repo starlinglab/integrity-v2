@@ -184,14 +184,19 @@ func validateAndParseFileSignatures(
 		return nil, err
 	}
 
-	gstFile, err := fileMap[fileSha+".gst"].Open()
-	if err != nil {
-		return nil, err
-	}
-	defer gstFile.Close()
-	gstBytes, err := io.ReadAll(gstFile)
-	if err != nil {
-		return nil, err
+	gstZipFile, ok := fileMap[fileSha+".gst"]
+	var gstBytes []byte
+	if ok {
+		// TODO: reject ones that aren't ok??
+		gstFile, err := gstZipFile.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer gstFile.Close()
+		gstBytes, err = io.ReadAll(gstFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fileData := ProofModeFileData{
