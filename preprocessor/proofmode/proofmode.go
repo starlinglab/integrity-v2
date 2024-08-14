@@ -10,13 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 
-	"path/filepath"
-
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"lukechampine.com/blake3"
 
-	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/starlinglab/integrity-v2/preprocessor/common"
 )
 
@@ -54,8 +53,18 @@ func validateAndParseFileSignatures(
 	jsonMetadataBytes []byte,
 	keys []*common.AllowedKey,
 ) (*ProofModeFileData, error) {
+
+	openFile := func(m map[string]*zip.File, n string) (io.ReadCloser, error) {
+		zipF, ok := m[n]
+		if !ok {
+			// Expected file not in ZIP
+			return nil, fmt.Errorf("missing file: " + n)
+		}
+		return zipF.Open()
+	}
+
 	// read key
-	keyFile, err := fileMap["pubkey.asc"].Open()
+	keyFile, err := openFile(fileMap, "pubkey.asc")
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +97,7 @@ func validateAndParseFileSignatures(
 	}
 
 	// read asset signature
-	assetSignature, err := fileMap[fileSha+".asc"].Open()
+	assetSignature, err := openFile(fileMap, fileSha+".asc")
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +108,7 @@ func validateAndParseFileSignatures(
 	}
 
 	// read asset
-	assetFile, err := fileMap[fileName].Open()
+	assetFile, err := openFile(fileMap, fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +120,7 @@ func validateAndParseFileSignatures(
 	mediaType := http.DetectContentType(headerBytes)
 	assetFile.Close()
 
-	assetFile, err = fileMap[fileName].Open()
+	assetFile, err = openFile(fileMap, fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +144,7 @@ func validateAndParseFileSignatures(
 	}
 
 	// verify json metadata signature
-	jsonMetadataSignature, err := fileMap[fileSha+".proof.json.asc"].Open()
+	jsonMetadataSignature, err := openFile(fileMap, fileSha+".proof.json.asc")
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +159,7 @@ func validateAndParseFileSignatures(
 	}
 
 	// verify csv metadata signature
-	csvMetadata, err := fileMap[fileSha+".proof.csv"].Open()
+	csvMetadata, err := openFile(fileMap, fileSha+".proof.csv")
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +169,7 @@ func validateAndParseFileSignatures(
 		return nil, err
 	}
 
-	csvMetadataSignature, err := fileMap[fileSha+".proof.csv.asc"].Open()
+	csvMetadataSignature, err := openFile(fileMap, fileSha+".proof.csv.asc")
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +183,7 @@ func validateAndParseFileSignatures(
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
 
-	otsFile, err := fileMap[fileSha+".ots"].Open()
+	otsFile, err := openFile(fileMap, fileSha+".ots")
 	if err != nil {
 		return nil, err
 	}
@@ -184,19 +193,14 @@ func validateAndParseFileSignatures(
 		return nil, err
 	}
 
-	gstZipFile, ok := fileMap[fileSha+".gst"]
-	var gstBytes []byte
-	if ok {
-		// TODO: reject ones that aren't ok??
-		gstFile, err := gstZipFile.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer gstFile.Close()
-		gstBytes, err = io.ReadAll(gstFile)
-		if err != nil {
-			return nil, err
-		}
+	gstFile, err := openFile(fileMap, fileSha+".gst")
+	if err != nil {
+		return nil, err
+	}
+	defer gstFile.Close()
+	gstBytes, err := io.ReadAll(gstFile)
+	if err != nil {
+		return nil, err
 	}
 
 	fileData := ProofModeFileData{
