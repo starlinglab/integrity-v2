@@ -42,7 +42,11 @@ func ParseMapToAttributes(cid string, attrMap map[string]any, fileAttributes map
 	}
 
 	for key, value := range fileAttributes {
-		attributes = append(attributes, aa.PostKV{Key: key, Value: value})
+		if slices.Contains(indexedStringKeys, key) {
+			attributes = append(attributes, aa.PostKV{Key: key, Value: value, Type: "str"})
+		} else {
+			attributes = append(attributes, aa.PostKV{Key: key, Value: value})
+		}
 	}
 
 	return attributes, nil
