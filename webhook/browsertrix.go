@@ -229,92 +229,122 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	waczUrl := crawlInfo.Resources[0].Path
-	resp, err := client.Get(waczUrl)
-	if err != nil {
-		log.Printf("browsertrix: failed to download wacz: %s", err.Error())
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+	// Check if file is already stored before storing it again
+	// Convert SHA-256 hash from Browsertrix to CID, then check the disk
+	alreadyDownloaded := false
+	matches, _ := aa.IndexMatchQuery("sha256", crawlInfo.Resources[0].Hash, "str")
+	if len(matches) > 0 {
+		_, err = os.Stat(filepath.Join(config.GetConfig().Dirs.Files, matches[0]))
+		if err == nil {
+			alreadyDownloaded = true
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("browsertrix: failed to download wacz: %s", resp.Status)
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "failed to download wacz"})
-		return
-	}
+	if !alreadyDownloaded {
+		// Download the WACZ
+		waczUrl := crawlInfo.Resources[0].Path
+		resp, err := client.Get(waczUrl)
+		if err != nil {
+			log.Printf("browsertrix: failed to download wacz: %s", err.Error())
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("browsertrix: failed to download wacz: %s", resp.Status)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "failed to download wacz"})
+			return
+		}
 
-	outputDirectory, err := getFileOutputDirectory()
-	if err != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
+		outputDirectory, err := getFileOutputDirectory()
+		if err != nil {
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 
-	tempFile, err := os.CreateTemp(util.TempDir(), "browsertrix-webhook_")
-	if err != nil {
-		log.Printf("browsertrix: failed to create temp file: %s", err.Error())
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	tempFilePath := tempFile.Name()
-	defer tempFile.Close()
-	defer os.Remove(tempFilePath)
+		tempFile, err := os.CreateTemp(util.TempDir(), "browsertrix-webhook_")
+		if err != nil {
+			log.Printf("browsertrix: failed to create temp file: %s", err.Error())
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		tempFilePath := tempFile.Name()
+		defer tempFile.Close()
+		defer os.Remove(tempFilePath)
 
-	cid, fileAttributes, err := getFileAttributesAndWriteToDest(resp.Body, tempFile)
-	if err != nil {
-		log.Printf("browsertrix: failed to write wacz to temp file: %s", err.Error())
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
+		cid, fileAttributes, err := getFileAttributesAndWriteToDest(resp.Body, tempFile)
+		if err != nil {
+			log.Printf("browsertrix: failed to write wacz to temp file: %s", err.Error())
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 
-	if fileAttributes["sha256"] != crawlInfo.Resources[0].Hash {
-		log.Printf("browsertrix: hash mismatch: %s != %s", fileAttributes["sha256"], crawlInfo.Resources[0].Hash)
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "hash mismatch"})
-		return
-	}
+		if fileAttributes["sha256"] != crawlInfo.Resources[0].Hash {
+			log.Printf("browsertrix: hash mismatch: %s != %s", fileAttributes["sha256"], crawlInfo.Resources[0].Hash)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "hash mismatch"})
+			return
+		}
 
-	if fileAttributes["file_size"].(int64) != crawlInfo.Resources[0].Size {
-		log.Printf("browsertrix: size mismatch: %d != %d", fileAttributes["file_size"], crawlInfo.Resources[0].Size)
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "size mismatch"})
-		return
-	}
+		if fileAttributes["file_size"].(int64) != crawlInfo.Resources[0].Size {
+			log.Printf("browsertrix: size mismatch: %d != %d", fileAttributes["file_size"], crawlInfo.Resources[0].Size)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "size mismatch"})
+			return
+		}
 
-	metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains())
-	if err != nil {
-		log.Printf("browsertrix: failed to get metadata: %s", err.Error())
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	metadataMap["asset_origin_id"] = crawlInfo.Resources[0].CrawlID
-	metadataMap["asset_origin_type"] = []string{"wacz"}
-	metadataMap["project_id"] = projectId
-	metadataMap["file_name"] = crawlInfo.Resources[0].Name
-	metadataMap["crawl_workflow_name"] = crawlInfo.Name
-	metadataMap["crawl_workflow_tags"] = crawlInfo.Tags
-	metadataMap["crawl_description"] = crawlInfo.Description
-	if e.Event == "crawlReviewed" {
-		metadataMap["crawl_qa_rating"] = e.ReviewStatusLabel
-	}
+		metadataMap, err := wacz.GetVerifiedMetadata(tempFilePath, nil, common.BrowsertrixSigningDomains())
+		if err != nil {
+			log.Printf("browsertrix: failed to get metadata: %s", err.Error())
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		metadataMap["asset_origin_id"] = crawlInfo.Resources[0].CrawlID
+		metadataMap["asset_origin_type"] = []string{"wacz"}
+		metadataMap["project_id"] = projectId
+		metadataMap["file_name"] = crawlInfo.Resources[0].Name
+		metadataMap["crawl_workflow_name"] = crawlInfo.Name
+		metadataMap["crawl_workflow_tags"] = crawlInfo.Tags
+		metadataMap["crawl_description"] = crawlInfo.Description
+		if e.Event == "crawlReviewed" {
+			metadataMap["crawl_qa_rating"] = e.ReviewStatusLabel
+		}
 
-	err = util.MoveFile(tempFilePath, filepath.Join(outputDirectory, cid))
-	if err != nil {
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
+		err = util.MoveFile(tempFilePath, filepath.Join(outputDirectory, cid))
+		if err != nil {
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
 
-	attributes, err := ParseMapToAttributes(cid, metadataMap, fileAttributes)
-	if err != nil {
-		log.Println("browsertrix: error parsing attributes:", err)
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	err = aa.SetAttestations(cid, true, attributes)
-	if err != nil {
-		log.Println("browsertrix: error setting attestations:", err)
-		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+		attributes, err := ParseMapToAttributes(cid, metadataMap, fileAttributes)
+		if err != nil {
+			log.Println("browsertrix: error parsing attributes:", err)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		err = aa.SetAttestations(cid, true, attributes)
+		if err != nil {
+			log.Println("browsertrix: error setting attestations:", err)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		log.Printf("browsertrix: processed with CID %s", cid)
+	} else {
+		// WACZ was already downloaded
+		// This must be a "crawlReviewed" event, and the WACZ was already processed during "crawlFinished"
+		// So just set any new attributes
+		cid := matches[0]
+		attrs := []aa.PostKV{
+			{Key: "crawl_qa_rating", Value: e.ReviewStatusLabel},
+			{Key: "crawl_description", Value: crawlInfo.Description},
+		}
+		err = aa.SetAttestations(cid, true, attrs)
+		if err != nil {
+			log.Println("browsertrix: error setting attestations:", err)
+			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		log.Printf("browsertrix: processed QA info for WACZ without re-downloading: %s", cid)
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	log.Printf("browsertrix: processed with CID %s", cid)
 }
