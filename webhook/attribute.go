@@ -9,7 +9,7 @@ import (
 )
 
 // list of attributes that should be indexed as string
-var indexedStringKeys = []string{"file_name", "asset_origin_id", "project_id"}
+var indexedStringKeys = []string{"file_name", "asset_origin_id", "project_id", "sha256", "blake3"}
 
 // ParseMapToAttributes parses a map and a file stat map
 // to a slice of attributes for POSTing to the AA server
@@ -42,7 +42,11 @@ func ParseMapToAttributes(cid string, attrMap map[string]any, fileAttributes map
 	}
 
 	for key, value := range fileAttributes {
-		attributes = append(attributes, aa.PostKV{Key: key, Value: value})
+		if slices.Contains(indexedStringKeys, key) {
+			attributes = append(attributes, aa.PostKV{Key: key, Value: value, Type: "str"})
+		} else {
+			attributes = append(attributes, aa.PostKV{Key: key, Value: value})
+		}
 	}
 
 	return attributes, nil

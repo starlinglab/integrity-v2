@@ -35,7 +35,7 @@ The majority of these attributes are set automatically upon ingestion, but all c
 - `project_id`: the name for the project this asset was ingested under
 - `project_path`: the path for the project within the sync folder
 - `asset_origin_sig_key_name`: may exist if the ingestion process involved verifiying a known, named public key
-- Browsertrix crawl info: `crawl_workflow_name`, `crawl_workflow_description`, `crawl_workflow_tags`
+- Browsertrix crawl info: `crawl_workflow_name`, `crawl_workflow_tags`, `crawl_description`, `crawl_qa_rating`
 
 Encrypted files have the `encryption_type` attribute, currently always set to `secretstream`. See [encryption.md](./encryption.md) for more info.
 
