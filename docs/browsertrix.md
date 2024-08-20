@@ -71,14 +71,16 @@ curl --location 'https://app.browsertrix.com/api/orgs/<org-id>/event-webhook-url
 --header 'Content-Type: application/json' \
 --header 'Authorization: Bearer <jwt>' \
 --data '{
-  "crawlStarted": "<webhook-url>",
-  "crawlFinished": "<webhook-url>",
-  "crawlDeleted": "<webhook-url>",
-  "uploadFinished": "<webhook-url>",
-  "uploadDeleted": "<webhook-url>",
-  "addedToCollection": "<webhook-url>",
-  "removedFromCollection": "<webhook-url>",
-  "collectionDeleted": "<webhook-url>"
+  "crawlStarted": null,
+  "crawlFinished": "<webhook url>",
+  "crawlDeleted": null,
+  "uploadFinished": null,
+  "uploadDeleted": null,
+  "addedToCollection": null,
+  "removedFromCollection": null,
+  "collectionDeleted": null,
+  "qaAnalysisFinished" : null,
+  "crawlReviewed": "<webhook url>"
 }'
 ```
 

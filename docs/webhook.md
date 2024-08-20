@@ -22,6 +22,8 @@ Webhook URLs are expected to be set through app.browsertrix.com API. A JWT token
 
 Crawl metadata are expected to be set in `(key):(value)` format. e.g. `project_id:test_project`. `project_id` must be set, otherwise the crawl events will not be processed.
 
+If the tag `auto-accept` is set, then the crawl will be ingested immediately after finishing. Otherwise, it will only be accepted after a manual review with a rating of Fair or above.
+
 ## Authenticating with the Webhook
 
 For webhook callers, ensure the config values `webhook.Host` and `webhook.Jwt` are set. `webhook.Jwt` should be a pre-shared `HS256` JWT signed by the webhook host (`JWT_SECRET`).
