@@ -17,7 +17,7 @@ https://github.com/starlinglab/authenticated-attributes
 
 After building `starling`, transfer it to your server with `scp` and move it to `/usr/local/bin`.
 
-You may also want to install optional dependencies such as [rclone](https://rclone.org), [c2patool](https://github.com/contentauth/c2patool), and [w3](https://web3.storage/docs/w3cli/).
+You may also want to install optional dependencies such as [rclone](https://rclone.org), [c2patool](https://github.com/contentauth/c2patool), and [w3](https://web3.storage/docs/w3cli/). Note if uploading to web3.storage, logging in first with `w3 login <email>` is required.
 
 ## Create directories
 
