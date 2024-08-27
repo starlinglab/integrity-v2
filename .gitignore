@@ -1,4 +1,5 @@
-importers
+importers/*
+!importers/*.go
 NOTES.md
 /integrity-v2
 /starling
