@@ -12,11 +12,11 @@ All commands on starling server are appended with `starling`
 This piece is a walk-through for a demo of previewing assets that people have created using proofmode and uploaded to the Starling Integrity Backed using a GDrive folder
 First, list the CIDs in the project that people have uploaded, then lets preview all assets available
 ```
-./starling attr search index project_id ipfs-camp-demo
+starling attr search index project_id ipfs-camp-demo
 ```
 
 ```
-./starling attr get -all <CID>
+starling attr get -all <CID>
 ```
 
 ## Example Workflow: Exploring expanded capabilities with the Starling server
@@ -28,7 +28,7 @@ Exploring attributes of proofmode bundle
 
  1. Get the CID of a file you know is a proofmode image
 ```
-./starling attr search index file_name img_20240702_110659.jpg
+starling attr search index file_name img_20240702_110659.jpg
 ```
  2. Next, view the atttributes of a given piece of content
 ```
@@ -47,7 +47,7 @@ starling attr get --all <CID>
 > To see the contents of a proofmode bundle (which is encrypted) you will need to add the `--encrypted` flag to the command to the get command -- This must be done on the server
 
 ```
-./starling attr get --attr proofmode --encrypted <CID>
+starling attr get --attr proofmode --encrypted <CID>
 ```
 
 _Since the key is on the server, we can only get this when we are on starling server_
@@ -163,6 +163,8 @@ starling attr get --attr registrations bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo
   }
 ]
 ```
+
+## Exporting a Verifiable Credential
 
 
 ### Notes
