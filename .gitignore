@@ -1,5 +1,5 @@
-importers/*
-!importers/*.go
+.env
+cids.csv
 NOTES.md
 /integrity-v2
 /starling
