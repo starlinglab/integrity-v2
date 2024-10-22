@@ -1,6 +1,7 @@
 # Browsertrix Webhook setup
 
-Guide to setup app.browsertrix.com for receiving webhook events
+This is a guide to set up app.browsertrix.com so it sends webhook events to the Integrity v2 server.
+This allows Browsertrix crawls to be ingested into the data pipeline automatically.
 
 ## Authentication
 
@@ -91,3 +92,10 @@ Response:
   "updated": true
 }
 ```
+
+The `<webhook url>` might look something like this: `https://example.com/browsertrix?s=abc123`. The path is always `/browsertrix`. The query param `s` is a secret value to prevent others from submitting crawl data. It must match the `Browsertrix.WebhookSecret` value in the config. See [webhook.md](./webhook.md) for more details.
+
+
+## Done
+
+Now the server will be notified when a crawl finishes or is reviewed, and can act accordingly. See [webhook.md](./webhook.md) for more details on how this is used.

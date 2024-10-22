@@ -225,7 +225,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	if projectId == "" {
 		log.Printf("browsertrix: missing projectId tag, ignoring")
-		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "missing assetOrigin tag"})
+		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "missing projectId tag"})
 		return
 	}
 

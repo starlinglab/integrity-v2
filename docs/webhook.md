@@ -20,9 +20,9 @@ To use the `/browsertrix` endpoint, `Browsertrix.User` and `Browsertrix.Password
 
 Webhook URLs are expected to be set through app.browsertrix.com API. A JWT token can be exchanged using [login](https://app.browsertrix.com/api/redoc#tag/auth/operation/login_api_auth_jwt_login_post) and [update event webhook urls](https://app.browsertrix.com/api/redoc#tag/organizations/operation/update_event_webhook_urls_api_orgs__oid__event_webhook_urls_post). Please refer to [Browsertrix webhook setup doc](./browsertrix.md) for details.
 
-Crawl metadata are expected to be set in `(key):(value)` format. e.g. `project_id:test_project`. `project_id` must be set, otherwise the crawl events will not be processed.
+The project ID must be set for the crawl, as a tag in the metadata. For example: `project_id:test_project`. Otherwise crawl events will not be processed.
 
-If the tag `auto-accept` is set, then the crawl will be ingested immediately after finishing. Otherwise, it will only be accepted after a manual review with a rating of Fair or above.
+If the tag `auto-accept` exists, then the crawl will be ingested immediately after finishing. Otherwise, it will only be accepted after a manual review with a rating of Fair or better.
 
 ## Authenticating with the Webhook
 
@@ -66,4 +66,4 @@ The encryption key is stored with the name `${CID}_${ATTRIBUTE_KEY}.key`, but CL
 
 #### Description
 
-For use with [Browsertrix cloud](https://app.browsertrix.com) webhook events. Please refer to [Browsertrix webhook setup doc](./browsertrix.md) for setup details. WACZ is downloaded and verified from crawl result. Extra metadata are fetched from the crawl's tags in the format of `(key):(value)`. Currently only supported keys are `project_id` and `asset_origin_id`.
+For use with [Browsertrix cloud](https://app.browsertrix.com) webhook events. Please refer to [Browsertrix webhook setup doc](./browsertrix.md) for setup details. WACZ is downloaded and verified from crawl result. Extra metadata is fetched from the crawl's tags, description and review status.
