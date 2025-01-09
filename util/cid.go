@@ -1,48 +1,26 @@
 package util
 
 import (
+	"crypto/sha256"
+	"encoding/base32"
 	"io"
-
-	"github.com/ipfs/boxo/blockservice"
-	blockstore "github.com/ipfs/boxo/blockstore"
-	chunker "github.com/ipfs/boxo/chunker"
-	offline "github.com/ipfs/boxo/exchange/offline"
-	"github.com/ipfs/boxo/ipld/merkledag"
-	"github.com/ipfs/boxo/ipld/unixfs/importer/balanced"
-	uih "github.com/ipfs/boxo/ipld/unixfs/importer/helpers"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
-	multicodec "github.com/multiformats/go-multicodec"
 )
 
-// CalculateFileCid gets the CIDv1 for the given data, the same as IPFS kubo would.
+var (
+	// https://github.com/multiformats/multibase
+	// The encoding referred to by "base32" or "b".
+	// "RFC4648 case-insensitive - no padding"
+	multibaseBase32 = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+)
+
+// CalculateFileCid gets the CIDv1 for the given data, using raw SHA-256.
 // It does not load the whole file into memory.
 func CalculateFileCid(fileReader io.Reader) (string, error) {
-	ds := dsync.MutexWrap(datastore.NewNullDatastore())
-	bs := blockstore.NewBlockstore(ds)
-	bs = blockstore.NewIdStore(bs)
-	bsrv := blockservice.New(bs, offline.Exchange(bs))
-	dsrv := merkledag.NewDAGService(bsrv)
-	// Create a UnixFS graph from our file, parameters described here but can be visualized at https://dag.ipfs.tech/
-	ufsImportParams := uih.DagBuilderParams{
-		Maxlinks:  uih.DefaultLinksPerBlock, // Default max of 174 links per block
-		RawLeaves: true,                     // Leave the actual file bytes untouched instead of wrapping them in a dag-pb protobuf wrapper
-		CidBuilder: cid.V1Builder{ // Use CIDv1 for all links
-			Codec:    uint64(multicodec.Raw),
-			MhType:   uint64(multicodec.Sha2_256), // Use SHA2-256 as the hash function
-			MhLength: -1,                          // Use the default hash length for the given hash function (in this case 256 bits)
-		},
-		Dagserv: dsrv,
-		NoCopy:  false,
-	}
-	ufsBuilder, err := ufsImportParams.New(chunker.NewSizeSplitter(fileReader, chunker.DefaultBlockSize)) // Split the file up into fixed sized 256KiB chunks
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, fileReader)
 	if err != nil {
-		return cid.Undef.String(), err
+		return "", err
 	}
-	nd, err := balanced.Layout(ufsBuilder) // Arrange the graph with a balanced layout
-	if err != nil {
-		return cid.Undef.String(), err
-	}
-	return nd.Cid().String(), nil
+	// The bytes are (in order) CID version, raw multicodec, sha2-256 multihash, 32 byte length hash
+	return "b" + multibaseBase32.EncodeToString(append([]byte{0x01, 0x55, 0x12, 0x20}, hasher.Sum(nil)...)), nil
 }

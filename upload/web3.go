@@ -69,14 +69,6 @@ func uploadWeb3(space string, cidPaths []string) error {
 			}
 			defer util.RemoveCarTmpDatastore() //nolint:errcheck
 
-			// Make sure CID hasn't changed
-			if car.Root().String() != filepath.Base(cidPath) {
-				return fmt.Errorf(
-					"CAR CID doesn't match file CID: %s != %s",
-					car.Root().String(), filepath.Base(cidPath),
-				)
-			}
-
 			if err := car.Write(tmpF); err != nil {
 				return fmt.Errorf("error writing temp CAR file: %w", err)
 			}

@@ -46,8 +46,8 @@ func MoveFile(sourcePath, destPath string) error {
 
 // GetCAR returns a CARv1 file created from the provided reader.
 // Currently this uses the default IPFS kubo settings under the hood, and so the
-// CIDv1 represented by the CAR file should exactly match the CIDv1 from CalculateFileCid
-// or IPFS kubo every time.
+// CIDv1 represented by the CAR file should exactly match the CIDv1 from
+// IPFS kubo every time. It will not match the CID from CalculateFileCid.
 //
 // Set useDisk to control whether this function holds the read bytes all in memory
 // or stores them on the disk temporarily.

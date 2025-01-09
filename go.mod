@@ -11,13 +11,9 @@ require (
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-chi/jwtauth/v5 v5.3.1
-	github.com/ipfs/boxo v0.20.0
-	github.com/ipfs/go-cid v0.4.1
-	github.com/ipfs/go-datastore v0.6.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/jwx/v2 v2.0.21
-	github.com/multiformats/go-multicodec v0.9.0
 	github.com/openziti/secretstream v0.1.20
 	github.com/photon-storage/go-ipfs-car v0.0.0-20240530014616-17d95f03173f
 	github.com/rjeczalik/notify v0.9.3
@@ -67,10 +63,13 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
+	github.com/ipfs/boxo v0.20.0 // indirect
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-block-format v0.2.0 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect
+	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-cidutil v0.1.0 // indirect
+	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ds-measure v0.2.0 // indirect
 	github.com/ipfs/go-fs-lock v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-blockstore v1.3.1 // indirect
@@ -144,6 +143,7 @@ require (
 	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
 	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
+	github.com/multiformats/go-multicodec v0.9.0 // indirect
 	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-multistream v0.5.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
