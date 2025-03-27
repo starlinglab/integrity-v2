@@ -42,9 +42,9 @@ type AttEntry struct {
 	} `json:"signature"`
 	Timestamp struct {
 		OTS struct {
-			Proof    []byte  `json:"proof"`
-			Upgraded bool    `json:"upgraded"`
-			Msg      CborCID `json:"msg"`
+			Proof    []byte `json:"proof"`
+			Upgraded bool   `json:"upgraded"`
+			Msg      string `json:"msg"`
 		} `json:"ots"`
 	} `json:"timestamp"`
 	Attestation struct {
