@@ -191,7 +191,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	if e.Event == "crawlFinished" && (e.Resources == nil || len(e.Resources) == 0) {
+	if e.Event == "crawlFinished" && len(e.Resources) == 0 {
 		log.Printf("browsertrix: missing resources, ignoring")
 		writeJsonResponse(w, http.StatusBadRequest, map[string]string{"error": "missing resources"})
 	}
