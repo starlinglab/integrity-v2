@@ -13,9 +13,9 @@ An asset (a media or any type of file) is identified with a CID, and an attribut
 ## Installation
 First you will need to install the correct binary for your computer, found here: [https://github.com/starlinglab/integrity-v2/releases](https://github.com/starlinglab/integrity-v2/releases).
 
-Rename the downloaded binary to `starling` and make it executable with `chmod +x starling`.
+Rename the downloaded binary to `starling` and make it executable: `$ chmod +x starling`.
 
-> Note - you may have to go into privacy and security settings (on mac) and allow this CLI application to be run on your computer.
+❗️ On macOS, you have to go into Privacy & Security settings and allow this CLI application to be run on your computer.
 
 ### Config File
 In the same directory as the binary, you need to have a config file named `integrity-v2.toml`. See the [example toml file](/example_config.toml) in this repo:
@@ -25,8 +25,6 @@ In the same directory as the binary, you need to have a config file named `integ
 url = "http://localhost:3001"
 jwt = "foo.bar.baz"           
 ```
-
-The demo server is at `url = "https://aa.dev.starlinglab.org"` and a `jwt` is not required.
 
 > Note - without a `jwt` you will not be able to do modification commands like `attr set`.
 
