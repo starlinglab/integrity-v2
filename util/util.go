@@ -2,8 +2,10 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -98,4 +100,15 @@ func TempDir() string {
 	// /var/tmp usually isn't cleared out after every reboot like /tmp which is too bad, but
 	// shouldn't be a big problem for us.
 	return "/var/tmp"
+}
+
+func FileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
 }
