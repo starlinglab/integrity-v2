@@ -11,7 +11,7 @@ require (
 	github.com/digitorus/pkcs7 v0.0.0-20230713084857-e76b763bdc49
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
 	github.com/fxamacker/cbor/v2 v2.6.0
-	github.com/go-chi/chi/v5 v5.0.12
+	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-chi/jwtauth/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/joho/godotenv v1.5.1
