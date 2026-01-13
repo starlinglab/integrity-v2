@@ -25,7 +25,7 @@ var (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
-	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near)")
+	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register (optional)")
 	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
@@ -39,13 +39,29 @@ func Run(args []string) error {
 	// Validate input
 	if chain == "" {
 		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,near")
+		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,ethereum,polygon")
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("provide a single CID to work with")
 	}
 
 	cid := fs.Arg(0)
+
+	// https://docs.numbersprotocol.io/developers/commit-asset-history/support-status/
+	var chainID int
+	switch chain {
+	case "numbers":
+		chainID = 10507
+	case "avalanche":
+		chainID = 43114
+	case "ethereum":
+		chainID = 1
+	case "polygon":
+		chainID = 137
+	}
+	if chainID == 0 {
+		return fmt.Errorf("invalid chain name")
+	}
 
 	// Currently only one registration API is supported: Numbers Protocol
 	// Docs: https://docs.numbersprotocol.io/developers/commit-asset-history/commit-via-api
@@ -54,6 +70,7 @@ func Run(args []string) error {
 		"assetCid":     cid,
 		"assetCreator": "Starling Lab",
 		"testnet":      testnet,
+		"nftChainID":   chainID,
 	}
 
 	var attrNames []string
@@ -129,21 +146,16 @@ func Run(args []string) error {
 		return fmt.Errorf("failed to marshal request JSON: %w", err)
 	}
 
-	var server string
-	switch chain {
-	case "numbers":
-		server = "eo883tj75azolos.m.pipedream.net"
-	case "avalanche":
-		server = "eox7ryteolf6eh2.m.pipedream.net"
-	case "near":
-		server = "eof6acukpt2bka5.m.pipedream.net"
-	}
-
-	req, err := http.NewRequest("POST", "https://"+server, bytes.NewReader(requestBytes))
+	req, err := http.NewRequest(
+		"POST",
+		"https://us-central1-numbers-protocol-api.cloudfunctions.net/nit-commit-to-jade",
+		bytes.NewReader(requestBytes),
+	)
 	if err != nil {
 		return err
 	}
 	req.Header.Add("Authorization", "token "+conf.Numbers.Token)
+	req.Header.Add("Content-Type", "application/json")
 	fmt.Println("Registering...")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
