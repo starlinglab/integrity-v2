@@ -35,6 +35,7 @@ type ProofModeFileData struct {
 	PubKey            []byte
 	Ots               []byte
 	Gst               []byte
+	DeviceCheck       []byte
 	Sha256            string
 	Md5               string
 	Blake3            string
@@ -193,14 +194,35 @@ func validateAndParseFileSignatures(
 		return nil, err
 	}
 
-	gstFile, err := openFile(fileMap, fileSha+".gst")
-	if err != nil {
-		return nil, err
+	// On Android there is a .gst file (Google SafetyNet)
+	// On iOS there is a .devicecheck (Apple DeviceCheck) file
+	// https://github.com/starlinglab/integrity-v2/issues/66
+	// Let's allow a ZIP that has neither as well.
+
+	var gstBytes []byte
+	var dcBytes []byte
+
+	if _, ok := fileMap[fileSha+".gst"]; ok {
+		gstFile, err := openFile(fileMap, fileSha+".gst")
+		if err != nil {
+			return nil, err
+		}
+		defer gstFile.Close()
+		gstBytes, err = io.ReadAll(gstFile)
+		if err != nil {
+			return nil, err
+		}
 	}
-	defer gstFile.Close()
-	gstBytes, err := io.ReadAll(gstFile)
-	if err != nil {
-		return nil, err
+	if _, ok := fileMap[fileSha+".devicecheck"]; ok {
+		dcFile, err := openFile(fileMap, fileSha+".devicecheck")
+		if err != nil {
+			return nil, err
+		}
+		defer dcFile.Close()
+		dcBytes, err = io.ReadAll(dcFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fileData := ProofModeFileData{
@@ -213,6 +235,7 @@ func validateAndParseFileSignatures(
 		PubKey:            keyFileBytes,
 		Ots:               otsBytes,
 		Gst:               gstBytes,
+		DeviceCheck:       dcBytes,
 		FileSize:          fileSize,
 		MediaType:         mediaType,
 		Metadata:          nil,
