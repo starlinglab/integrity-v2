@@ -3,6 +3,16 @@
   "claim_generator": "Starling Lab Integrity v2",
   "assertions": [
     {
+      "label": "c2pa.actions",
+      "data": {
+        "actions": [
+          {
+            "action": "c2pa.created"
+          }
+        ]
+      }
+    },
+    {
       "label": "stds.schema-org.CreativeWork",
       "data": {
         "@context": "https://schema.org",
