@@ -192,14 +192,17 @@ func validateAndParseFileSignatures(
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
 
-	otsFile, err := openFile(fileMap, fileSha+".ots")
-	if err != nil {
-		return nil, err
-	}
-	defer otsFile.Close()
-	otsBytes, err := io.ReadAll(otsFile)
-	if err != nil {
-		return nil, err
+	var otsBytes []byte
+	if _, ok := fileMap[fileSha+".ots"]; ok {
+		otsFile, err := openFile(fileMap, fileSha+".ots")
+		if err != nil {
+			return nil, err
+		}
+		defer otsFile.Close()
+		otsBytes, err = io.ReadAll(otsFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// On Android there is a .gst file (Google SafetyNet)
