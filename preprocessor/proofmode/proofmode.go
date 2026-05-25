@@ -111,7 +111,15 @@ func validateAndParseFileSignatures(
 	// read asset
 	assetFile, err := openFile(fileMap, fileName)
 	if err != nil {
-		return nil, err
+		// Filename in metadata may differ from the ZIP (e.g. iOS Photos renames
+		// timestamp-named files to IMG_XXXX.JPG). Fall back to the content-hash
+		// key added by parseBundleAssetInfo.
+		origErr := err
+		fileName = fileSha
+		assetFile, err = openFile(fileMap, fileName)
+		if err != nil {
+			return nil, origErr
+		}
 	}
 	headerBytes := make([]byte, 512)
 	_, err = io.ReadFull(assetFile, headerBytes)
@@ -184,14 +192,17 @@ func validateAndParseFileSignatures(
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
 
-	otsFile, err := openFile(fileMap, fileSha+".ots")
-	if err != nil {
-		return nil, err
-	}
-	defer otsFile.Close()
-	otsBytes, err := io.ReadAll(otsFile)
-	if err != nil {
-		return nil, err
+	var otsBytes []byte
+	if _, ok := fileMap[fileSha+".ots"]; ok {
+		otsFile, err := openFile(fileMap, fileSha+".ots")
+		if err != nil {
+			return nil, err
+		}
+		defer otsFile.Close()
+		otsBytes, err = io.ReadAll(otsFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// On Android there is a .gst file (Google SafetyNet)
@@ -264,6 +275,12 @@ func parseBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]
 			jsonFilesBytes = append(jsonFilesBytes, jsonFileBytes)
 		} else {
 			fileMap[file.Name] = file
+			if rc, err := file.Open(); err == nil {
+				h := sha256.New()
+				io.Copy(h, rc)
+				rc.Close()
+				fileMap[hex.EncodeToString(h.Sum(nil))] = file
+			}
 		}
 	}
 	return fileMap, jsonFilesBytes, nil
