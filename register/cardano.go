@@ -250,8 +250,8 @@ func cardanoSplitStr(msg string) []string {
 	ss := make([]string, (len(msg)+64-1)/64) // ceiling division
 	for i := range ss {
 		high := i*64 + 64
-		if high >= len(msg) {
-			high = len(msg) - 1
+		if high > len(msg) {
+			high = len(msg)
 		}
 		ss[i] = msg[i*64 : high]
 	}
