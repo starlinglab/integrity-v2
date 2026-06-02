@@ -26,7 +26,7 @@ var (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
-	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,near,cardano)")
+	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon,cardano)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register (optional)")
 	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
@@ -40,7 +40,7 @@ func Run(args []string) error {
 	// Validate input
 	if chain == "" {
 		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,near,cardano")
+		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,ethereum,polygon,cardano")
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("provide a single CID to work with")
@@ -48,10 +48,35 @@ func Run(args []string) error {
 
 	cid := fs.Arg(0)
 
+	// Chains registered through the Numbers Protocol API; everything else
+	// (currently just cardano) has its own registration path.
+	numbersChains := []string{"numbers", "avalanche", "ethereum", "polygon"}
+	isNumbers := slices.Contains(numbersChains, chain)
+	if !isNumbers && chain != "cardano" {
+		return fmt.Errorf("invalid chain name")
+	}
+
 	requestData := map[string]any{
 		"assetCid":     cid,
 		"assetCreator": "Starling Lab",
 		"testnet":      testnet,
+	}
+
+	// The Numbers Protocol API selects the target chain via nftChainID.
+	// https://docs.numbersprotocol.io/developers/commit-asset-history/support-status/
+	if isNumbers {
+		var chainID int
+		switch chain {
+		case "numbers":
+			chainID = 10507
+		case "avalanche":
+			chainID = 43114
+		case "ethereum":
+			chainID = 1
+		case "polygon":
+			chainID = 137
+		}
+		requestData["nftChainID"] = chainID
 	}
 
 	var attrNames []string
@@ -124,7 +149,7 @@ func Run(args []string) error {
 	}
 
 	var chainData any
-	if slices.Contains([]string{"numbers", "avalanche", "near"}, chain) {
+	if isNumbers {
 		chainData, err = numbersRegister(requestBytes)
 	} else {
 		chainData, err = cardanoRegister(string(requestBytes))
@@ -154,21 +179,16 @@ func numbersRegister(requestBytes []byte) (*numbersCommitResp, error) {
 		return nil, fmt.Errorf("numbers authentication token not set in config file")
 	}
 
-	var server string
-	switch chain {
-	case "numbers":
-		server = "eo883tj75azolos.m.pipedream.net"
-	case "avalanche":
-		server = "eox7ryteolf6eh2.m.pipedream.net"
-	case "near":
-		server = "eof6acukpt2bka5.m.pipedream.net"
-	}
-
-	req, err := http.NewRequest("POST", "https://"+server, bytes.NewReader(requestBytes))
+	req, err := http.NewRequest(
+		"POST",
+		"https://us-central1-numbers-protocol-api.cloudfunctions.net/nit-commit-to-jade",
+		bytes.NewReader(requestBytes),
+	)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Authorization", "token "+config.GetConfig().Numbers.Token)
+	req.Header.Add("Content-Type", "application/json")
 	fmt.Println("Registering...")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

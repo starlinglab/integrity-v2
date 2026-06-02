@@ -35,6 +35,7 @@ type ProofModeFileData struct {
 	PubKey            []byte
 	Ots               []byte
 	Gst               []byte
+	DeviceCheck       []byte
 	Sha256            string
 	Md5               string
 	Blake3            string
@@ -110,7 +111,15 @@ func validateAndParseFileSignatures(
 	// read asset
 	assetFile, err := openFile(fileMap, fileName)
 	if err != nil {
-		return nil, err
+		// Filename in metadata may differ from the ZIP (e.g. iOS Photos renames
+		// timestamp-named files to IMG_XXXX.JPG). Fall back to the content-hash
+		// key added by parseBundleAssetInfo.
+		origErr := err
+		fileName = fileSha
+		assetFile, err = openFile(fileMap, fileName)
+		if err != nil {
+			return nil, origErr
+		}
 	}
 	headerBytes := make([]byte, 512)
 	_, err = io.ReadFull(assetFile, headerBytes)
@@ -183,24 +192,48 @@ func validateAndParseFileSignatures(
 		return nil, fmt.Errorf("metadata signature verification failed")
 	}
 
-	otsFile, err := openFile(fileMap, fileSha+".ots")
-	if err != nil {
-		return nil, err
-	}
-	defer otsFile.Close()
-	otsBytes, err := io.ReadAll(otsFile)
-	if err != nil {
-		return nil, err
+	var otsBytes []byte
+	if _, ok := fileMap[fileSha+".ots"]; ok {
+		otsFile, err := openFile(fileMap, fileSha+".ots")
+		if err != nil {
+			return nil, err
+		}
+		defer otsFile.Close()
+		otsBytes, err = io.ReadAll(otsFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	gstFile, err := openFile(fileMap, fileSha+".gst")
-	if err != nil {
-		return nil, err
+	// On Android there is a .gst file (Google SafetyNet)
+	// On iOS there is a .devicecheck (Apple DeviceCheck) file
+	// https://github.com/starlinglab/integrity-v2/issues/66
+	// Let's allow a ZIP that has neither as well.
+
+	var gstBytes []byte
+	var dcBytes []byte
+
+	if _, ok := fileMap[fileSha+".gst"]; ok {
+		gstFile, err := openFile(fileMap, fileSha+".gst")
+		if err != nil {
+			return nil, err
+		}
+		defer gstFile.Close()
+		gstBytes, err = io.ReadAll(gstFile)
+		if err != nil {
+			return nil, err
+		}
 	}
-	defer gstFile.Close()
-	gstBytes, err := io.ReadAll(gstFile)
-	if err != nil {
-		return nil, err
+	if _, ok := fileMap[fileSha+".devicecheck"]; ok {
+		dcFile, err := openFile(fileMap, fileSha+".devicecheck")
+		if err != nil {
+			return nil, err
+		}
+		defer dcFile.Close()
+		dcBytes, err = io.ReadAll(dcFile)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fileData := ProofModeFileData{
@@ -213,6 +246,7 @@ func validateAndParseFileSignatures(
 		PubKey:            keyFileBytes,
 		Ots:               otsBytes,
 		Gst:               gstBytes,
+		DeviceCheck:       dcBytes,
 		FileSize:          fileSize,
 		MediaType:         mediaType,
 		Metadata:          nil,
@@ -241,6 +275,12 @@ func parseBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]
 			jsonFilesBytes = append(jsonFilesBytes, jsonFileBytes)
 		} else {
 			fileMap[file.Name] = file
+			if rc, err := file.Open(); err == nil {
+				h := sha256.New()
+				io.Copy(h, rc)
+				rc.Close()
+				fileMap[hex.EncodeToString(h.Sum(nil))] = file
+			}
 		}
 	}
 	return fileMap, jsonFilesBytes, nil

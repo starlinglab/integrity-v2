@@ -49,6 +49,21 @@ func getProofModeFileMetadatas(filePath string, keys []*common.AllowedKey) ([]ma
 		// we can just append the filename.
 		assetOrigin := filepath.Join(assetOriginRoot, fileName)
 
+		proofmodeData := map[string]any{
+			"metadata":  string(asset.MetadataBytes),
+			"meta_sig":  string(asset.MetadataSignature),
+			"media_sig": string(asset.AssetSignature),
+			"pubkey":    string(asset.PubKey),
+			"ots":       asset.Ots,
+		}
+		if asset.Gst != nil {
+			// It's JSON so store as string
+			proofmodeData["gst"] = string(asset.Gst)
+		}
+		if asset.DeviceCheck != nil {
+			// It's a custom binary data format, leave as bytes
+			proofmodeData["devicecheck"] = asset.DeviceCheck
+		}
 		metadata := map[string]any{
 			"file_name":         fileName,
 			"last_modified":     asset.Metadata.FileModified,
@@ -56,16 +71,8 @@ func getProofModeFileMetadatas(filePath string, keys []*common.AllowedKey) ([]ma
 			"asset_origin_id":   assetOrigin,
 			"asset_origin_type": []string{"proofmode"},
 			"media_type":        asset.MediaType,
-			"private": map[string]any{ // "private" fields are encrypted
-				"proofmode": map[string]any{
-					"metadata":  string(asset.MetadataBytes),
-					"meta_sig":  string(asset.MetadataSignature),
-					"media_sig": string(asset.AssetSignature),
-					"pubkey":    string(asset.PubKey),
-					"ots":       asset.Ots,
-					"gst":       string(asset.Gst),
-				},
-			},
+			// "private" fields are encrypted
+			"private":                   map[string]any{"proofmode": proofmodeData},
 			"asset_origin_sig_key_name": asset.KeyName,
 		}
 		metadatas = append(metadatas, metadata)

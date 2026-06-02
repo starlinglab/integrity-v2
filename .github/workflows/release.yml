@@ -15,7 +15,7 @@ jobs:
       - uses: extractions/setup-just@v2
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
       - run: |
           just releases
       - uses: softprops/action-gh-release@v2
