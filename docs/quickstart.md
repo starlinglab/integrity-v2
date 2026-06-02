@@ -135,4 +135,4 @@ Now lets look at a blockchain registration:
 ./starling attr get --attr registrations bafybeifbqqwj7625r2snojcksumwgcd3rmrdbvjo2rxiketsdefzbk7ia4 
 ```
 
-You can see this is registered on the Near blockchain.
+You can see the details of this asset's blockchain registration, including which chain it was registered on.

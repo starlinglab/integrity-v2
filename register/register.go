@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ var (
 
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
-	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon)")
+	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon,cardano)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register (optional)")
 	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
@@ -39,7 +40,7 @@ func Run(args []string) error {
 	// Validate input
 	if chain == "" {
 		fs.PrintDefaults()
-		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,ethereum,polygon")
+		return fmt.Errorf("\nprovide chain/network with --on: numbers,avalanche,ethereum,polygon,cardano")
 	}
 	if fs.NArg() != 1 {
 		return fmt.Errorf("provide a single CID to work with")
@@ -47,30 +48,35 @@ func Run(args []string) error {
 
 	cid := fs.Arg(0)
 
-	// https://docs.numbersprotocol.io/developers/commit-asset-history/support-status/
-	var chainID int
-	switch chain {
-	case "numbers":
-		chainID = 10507
-	case "avalanche":
-		chainID = 43114
-	case "ethereum":
-		chainID = 1
-	case "polygon":
-		chainID = 137
-	}
-	if chainID == 0 {
+	// Chains registered through the Numbers Protocol API; everything else
+	// (currently just cardano) has its own registration path.
+	numbersChains := []string{"numbers", "avalanche", "ethereum", "polygon"}
+	isNumbers := slices.Contains(numbersChains, chain)
+	if !isNumbers && chain != "cardano" {
 		return fmt.Errorf("invalid chain name")
 	}
-
-	// Currently only one registration API is supported: Numbers Protocol
-	// Docs: https://docs.numbersprotocol.io/developers/commit-asset-history/commit-via-api
 
 	requestData := map[string]any{
 		"assetCid":     cid,
 		"assetCreator": "Starling Lab",
 		"testnet":      testnet,
-		"nftChainID":   chainID,
+	}
+
+	// The Numbers Protocol API selects the target chain via nftChainID.
+	// https://docs.numbersprotocol.io/developers/commit-asset-history/support-status/
+	if isNumbers {
+		var chainID int
+		switch chain {
+		case "numbers":
+			chainID = 10507
+		case "avalanche":
+			chainID = 43114
+		case "ethereum":
+			chainID = 1
+		case "polygon":
+			chainID = 137
+		}
+		requestData["nftChainID"] = chainID
 	}
 
 	var attrNames []string
@@ -137,56 +143,25 @@ func Run(args []string) error {
 		return nil
 	}
 
-	if conf.Numbers.Token == "" {
-		return fmt.Errorf("numbers authentication token not set in config file")
-	}
-
 	requestBytes, err := json.Marshal(requestData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request JSON: %w", err)
 	}
 
-	req, err := http.NewRequest(
-		"POST",
-		"https://us-central1-numbers-protocol-api.cloudfunctions.net/nit-commit-to-jade",
-		bytes.NewReader(requestBytes),
-	)
+	var chainData any
+	if isNumbers {
+		chainData, err = numbersRegister(requestBytes)
+	} else {
+		chainData, err = cardanoRegister(string(requestBytes))
+	}
 	if err != nil {
 		return err
-	}
-	req.Header.Add("Authorization", "token "+conf.Numbers.Token)
-	req.Header.Add("Content-Type", "application/json")
-	fmt.Println("Registering...")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error with register API call: %w", err)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
-	if err != nil {
-		return fmt.Errorf("error reading API response: %w", err)
-	}
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("register server returned status code %d and body: %s",
-			resp.StatusCode, body)
-	}
-
-	if testnet {
-		fmt.Printf("\n%s\n\nTestnet registration not logged in AuthAttr\n", body)
-		return nil
-	}
-
-	var txData numbersCommitResp
-	err = json.Unmarshal(body, &txData)
-	if err != nil {
-		return fmt.Errorf("error parsing API response: %w", err)
 	}
 
 	err = aa.AppendAttestation(cid, "registrations", aaRegistration{
 		Chain: chain,
 		Attrs: attrNames,
-		Data:  &txData,
+		Data:  chainData,
 	})
 	if err != nil {
 		return fmt.Errorf("error logging registration to AuthAttr: %w", err)
@@ -197,6 +172,52 @@ func Run(args []string) error {
 	return nil
 }
 
+func numbersRegister(requestBytes []byte) (*numbersCommitResp, error) {
+	// Docs: https://docs.numbersprotocol.io/developers/commit-asset-history/commit-via-api
+
+	if config.GetConfig().Numbers.Token == "" {
+		return nil, fmt.Errorf("numbers authentication token not set in config file")
+	}
+
+	req, err := http.NewRequest(
+		"POST",
+		"https://us-central1-numbers-protocol-api.cloudfunctions.net/nit-commit-to-jade",
+		bytes.NewReader(requestBytes),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", "token "+config.GetConfig().Numbers.Token)
+	req.Header.Add("Content-Type", "application/json")
+	fmt.Println("Registering...")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error with register API call: %w", err)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	if err != nil {
+		return nil, fmt.Errorf("error reading API response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("register server returned status code %d and body: %s",
+			resp.StatusCode, body)
+	}
+
+	if testnet {
+		fmt.Printf("\n%s\n\nTestnet registration not logged in AuthAttr\n", body)
+		return nil, nil
+	}
+
+	var txData numbersCommitResp
+	err = json.Unmarshal(body, &txData)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing API response: %w", err)
+	}
+	return &txData, nil
+}
+
 type numbersCommitResp struct {
 	TxHash       string `json:"txHash"`
 	AssetCid     string `json:"assetCid"`
@@ -205,9 +226,9 @@ type numbersCommitResp struct {
 }
 
 type aaRegistration struct {
-	Chain string             `cbor:"chain"`
-	Attrs []string           `cbor:"attrs"`
-	Data  *numbersCommitResp `cbor:"data"`
+	Chain string   `cbor:"chain"`
+	Attrs []string `cbor:"attrs"`
+	Data  any      `cbor:"data"`
 }
 
 func getAttValue(cid string, attr string) (any, error) {

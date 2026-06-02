@@ -22,6 +22,7 @@ type Config struct {
 		Files             string `toml:"files"`
 		C2PAManifestTmpls string `toml:"c2pa_manifest_templates"`
 		EncKeys           string `toml:"enc_keys"`
+		Cardano           string `toml:"cardano"`
 	} `toml:"dirs"`
 	FolderPreprocessor struct {
 		SyncFolderRoot string `toml:"sync_folder_root"`
@@ -34,9 +35,10 @@ type Config struct {
 		Database string `toml:"database"`
 	} `toml:"folder_database"`
 	Bins struct {
-		Rclone   string `toml:"rclone"`
-		C2patool string `toml:"c2patool"`
-		W3       string `toml:"w3"`
+		Rclone     string `toml:"rclone"`
+		C2patool   string `toml:"c2patool"`
+		W3         string `toml:"w3"`
+		CardanoCli string `toml:"cardano_cli"`
 	} `toml:"bins"`
 	C2PA struct {
 		PrivateKey string `toml:"private_key"`
@@ -52,6 +54,9 @@ type Config struct {
 		WebhookSecret  string   `toml:"webhook_secret"`
 		SigningDomains []string `toml:"signing_domains"`
 	} `toml:"browsertrix"`
+	Cardano struct {
+		BlockfrostApiKey string `toml:"blockfrost_api_key"`
+	} `toml:"cardano"`
 }
 
 var conf *Config
