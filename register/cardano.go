@@ -14,16 +14,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
 
-// Hardcode use of "preview" testnet for now
 const (
-	cardanoNetworkId = "2"
-	blockfrostApi    = "https://cardano-preview.blockfrost.io/api/v0/"
 	cardanoMsgNumber = 674 // Generic transaction message
 
 	// cardanoFeePlaceholder is a stand-in fee used only to build and sign the tx once so
@@ -38,9 +36,55 @@ const (
 
 	cardanoPollInterval = 5 * time.Second  // gap between confirmation checks
 	cardanoPollTimeout  = 10 * time.Minute // give up (fail registration) after this
-
-	cardanoFaucetErr = "add more funds, go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet"
 )
+
+// errInsufficientFunds is the sentinel returned by selectCardanoUTXOs (and the in-register guards)
+// when the wallet's whole balance still cannot cover the fee plus the change output's min-ada floor.
+// cardanoRegister translates it into network-appropriate funding guidance (see cardanoFundingHint).
+var errInsufficientFunds = errors.New("cardano wallet has insufficient funds")
+
+// cardanoNetwork bundles everything that differs between the chains we target. It is derived once
+// per registration from the --testnet flag (see cardanoNetworkFor) and threaded through tx
+// construction and the Blockfrost calls so nothing is hardcoded to a single network.
+type cardanoNetwork struct {
+	name           string   // recorded in cardanoChainData.CardanoChain: "preview" | "mainnet"
+	blockfrostBase string   // Blockfrost API base URL for this network
+	cliNetworkArgs []string // cardano-cli network selector: {"--mainnet"} or {"--testnet-magic", "2"}
+	keyPrefix      string   // expected Blockfrost project_id prefix; keys are network-scoped
+	fundingHint    string   // guidance appended to insufficient-funds errors (faucet vs. send ADA)
+}
+
+// cardanoNetworkFor maps the --testnet flag to a concrete network. A boolean only expresses two
+// networks, so we support preview (testnet) and mainnet (its absence); preprod is not reachable.
+func cardanoNetworkFor(testnet bool) cardanoNetwork {
+	if testnet {
+		return cardanoNetwork{
+			name:           "preview",
+			blockfrostBase: "https://cardano-preview.blockfrost.io/api/v0/",
+			cliNetworkArgs: []string{"--testnet-magic", "2"},
+			keyPrefix:      "preview",
+			fundingHint:    "go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet",
+		}
+	}
+	return cardanoNetwork{
+		name:           "mainnet",
+		blockfrostBase: "https://cardano-mainnet.blockfrost.io/api/v0/",
+		cliNetworkArgs: []string{"--mainnet"},
+		keyPrefix:      "mainnet",
+		fundingHint:    "send ADA to the wallet address",
+	}
+}
+
+// cardanoCheckKeyNetwork verifies a Blockfrost project_id targets the selected network. Keys are
+// network-scoped (their prefix is the network name: mainnet…/preview…/preprod…), so a mismatched
+// prefix means the key would talk to the wrong chain; callers reject it before doing any work.
+func cardanoCheckKeyNetwork(net cardanoNetwork, key string) error {
+	if !strings.HasPrefix(key, net.keyPrefix) {
+		return fmt.Errorf("blockfrost key does not match the selected network (%s); expected a key beginning with %q",
+			net.name, net.keyPrefix)
+	}
+	return nil
+}
 
 // Conservative byte upper bounds used by cardanoMinUTXO to size a change output. The protocol
 // min-ada floor is (cardanoUTXOEntryOverhead + sizeInBytes(TxOut)) * coinsPerUTxOByte; every
@@ -92,7 +136,7 @@ type cardanoProtocolParams struct {
 	CoinsPerUTXOByte int    `json:"-"` // parsed from CoinsPerUTXOSize
 }
 
-func cardanoRegister(msg string) (*cardanoChainData, error) {
+func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 	conf := config.GetConfig()
 
 	if conf.Bins.CardanoCli == "" {
@@ -100,6 +144,16 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}
 	if conf.Dirs.Cardano == "" {
 		return nil, fmt.Errorf("cardano dirs are not set in config")
+	}
+
+	// --testnet selects preview; its absence selects mainnet. Everything network-specific
+	// (Blockfrost endpoint, cardano-cli network arg, recorded chain name) is derived from here.
+	net := cardanoNetworkFor(testnet)
+
+	// Reject a Blockfrost key that does not match the selected network up front, before generating
+	// keys or building a tx, so a preview key can never be used against mainnet (or vice-versa).
+	if err := cardanoCheckKeyNetwork(net, conf.Cardano.BlockfrostApiKey); err != nil {
+		return nil, err
 	}
 
 	// Generate wallet and address if needed
@@ -125,16 +179,14 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 			return nil, err
 		}
 		fmt.Println("Building address")
-		err = runCardanoCmd(
+		err = runCardanoCmd(append([]string{
 			"address",
 			"build",
 			"--payment-verification-key-file",
 			filepath.Join(conf.Dirs.Cardano, "payment.vkey"),
 			"--out-file",
 			filepath.Join(conf.Dirs.Cardano, "paymentNoStake.addr"),
-			"--testnet-magic",
-			cardanoNetworkId,
-		)
+		}, net.cliNetworkArgs...)...)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +198,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", blockfrostApi+"addresses/"+string(addr)+"/utxos", nil)
+	req, err := http.NewRequest("GET", net.blockfrostBase+"addresses/"+string(addr)+"/utxos", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +209,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 404 {
-		return nil,
-			fmt.Errorf("address (%s) has no funds, go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet",
-				addr)
+		return nil, fmt.Errorf("address (%s) has no funds, %s", addr, net.fundingHint)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -175,7 +225,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	// actual transaction instead of overpaying a static amount) and coins_per_utxo_size (to
 	// compute the min-ada floor the change output must clear). Fetched before selection because
 	// the selection target depends on the min-ada value.
-	pp, err := getCardanoProtocolParams(context.Background(), conf.Cardano.BlockfrostApiKey)
+	pp, err := getCardanoProtocolParams(context.Background(), net.blockfrostBase, conf.Cardano.BlockfrostApiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +238,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	// from the actual selection and pull in more UTXOs until the change clears it. The loop is
 	// bounded: each non-breaking round strictly raises the target, forcing selectCardanoUTXOs to
 	// return a strictly longer prefix, and minAda is monotonic in the asset set so it cannot
-	// oscillate; exhaustion surfaces as cardanoFaucetErr.
+	// oscillate; exhaustion surfaces as errInsufficientFunds.
 	parsed, err := parseCardanoUTXOs(uxtos)
 	if err != nil {
 		return nil, err
@@ -202,10 +252,13 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	target := cardanoFeePlaceholder + cardanoMinUTXO(pp.CoinsPerUTXOByte, nil)
 	for i := 0; i <= len(parsed); i++ {
 		if i == len(parsed) { // safety net; the termination argument above makes this unreachable
-			return nil, errors.New(cardanoFaucetErr)
+			return nil, fmt.Errorf("add more funds, %s", net.fundingHint)
 		}
 		txIns, quantity, assets, err = selectCardanoUTXOs(parsed, target)
 		if err != nil {
+			if errors.Is(err, errInsufficientFunds) {
+				return nil, fmt.Errorf("add more funds, %s", net.fundingHint)
+			}
 			return nil, err
 		}
 		minAda = cardanoMinUTXO(pp.CoinsPerUTXOByte, assets)
@@ -225,7 +278,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}
 
 	// Pass 1: build and sign with a placeholder fee solely to measure the signed tx size.
-	measured, err := buildAndSignCardanoTx(conf, string(addr), txIns, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder, assets)
+	measured, err := buildAndSignCardanoTx(conf, net, string(addr), txIns, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -236,18 +289,18 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	// (e.g. very large metadata or many inputs).
 	fee := cardanoMinFee(pp.MinFeeA, pp.MinFeeB, len(measured))
 	if quantity < fee+minAda {
-		return nil, errors.New(cardanoFaucetErr)
+		return nil, fmt.Errorf("add more funds, %s", net.fundingHint)
 	}
 
 	// Pass 2: rebuild and re-sign with the computed fee and matching change output.
-	txCbor, err := buildAndSignCardanoTx(conf, string(addr), txIns, fee, quantity-fee, assets)
+	txCbor, err := buildAndSignCardanoTx(conf, net, string(addr), txIns, fee, quantity-fee, assets)
 	if err != nil {
 		return nil, err
 	}
 
 	// Submit transaction to Blockfrost
 	fmt.Println("Submitting transaction")
-	req, err = http.NewRequest("POST", blockfrostApi+"tx/submit", bytes.NewReader(txCbor))
+	req, err = http.NewRequest("POST", net.blockfrostBase+"tx/submit", bytes.NewReader(txCbor))
 	if err != nil {
 		return nil, err
 	}
@@ -277,13 +330,13 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	// Poll until the transaction is included in a block, recording where it landed.
 	// A 200 from tx/submit only means the tx was accepted into the mempool.
 	fmt.Println("Waiting for on-chain confirmation")
-	tx, err := pollCardanoConfirmation(txHash, conf.Cardano.BlockfrostApiKey)
+	tx, err := pollCardanoConfirmation(net.blockfrostBase, txHash, conf.Cardano.BlockfrostApiKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &cardanoChainData{
-		CardanoChain: "preview", // The hardcoded chain
+		CardanoChain: net.name,
 		TxHash:       txHash,
 		BlockHeight:  tx.BlockHeight,
 		BlockTime:    tx.BlockTime,
@@ -297,7 +350,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 // value. It attaches the metadata file written by the caller, signs the tx, and returns the
 // signed transaction's raw CBOR bytes. len(cbor) is the transaction's on-chain size, used to
 // compute the fee.
-func buildAndSignCardanoTx(conf *config.Config, addr string, txIns []string, fee, change int, assets map[string]int) ([]byte, error) {
+func buildAndSignCardanoTx(conf *config.Config, net cardanoNetwork, addr string, txIns []string, fee, change int, assets map[string]int) ([]byte, error) {
 	fmt.Println("Building transaction")
 	args := []string{"conway", "transaction", "build-raw"}
 	for _, txIn := range txIns {
@@ -319,7 +372,7 @@ func buildAndSignCardanoTx(conf *config.Config, addr string, txIns []string, fee
 	}
 
 	fmt.Println("Signing transaction")
-	err = runCardanoCmd(
+	signArgs := []string{
 		"conway",
 		"transaction",
 		"sign",
@@ -327,11 +380,10 @@ func buildAndSignCardanoTx(conf *config.Config, addr string, txIns []string, fee
 		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
 		"--signing-key-file",
 		filepath.Join(conf.Dirs.Cardano, "payment.skey"),
-		"--testnet-magic",
-		cardanoNetworkId,
-		"--out-file",
-		filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"),
-	)
+	}
+	signArgs = append(signArgs, net.cliNetworkArgs...)
+	signArgs = append(signArgs, "--out-file", filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"))
+	err = runCardanoCmd(signArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -356,8 +408,8 @@ func cardanoMinFee(minFeeA, minFeeB, txSize int) int {
 
 // getCardanoProtocolParams fetches the current epoch's protocol parameters from Blockfrost,
 // returning the linear fee coefficients used to size transaction fees.
-func getCardanoProtocolParams(ctx context.Context, apiKey string) (*cardanoProtocolParams, error) {
-	resp, err := blockfrostGet(ctx, "epochs/latest/parameters", apiKey)
+func getCardanoProtocolParams(ctx context.Context, base, apiKey string) (*cardanoProtocolParams, error) {
+	resp, err := blockfrostGet(ctx, base, "epochs/latest/parameters", apiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -411,12 +463,12 @@ func cardanoMinUTXO(coinsPerUTxOByte int, assets map[string]int) int {
 // pollCardanoConfirmation polls Blockfrost GET /txs/{hash} until txHash is included
 // in a block, returning its block height and time. Blockfrost returns 404 while the
 // tx is still pending. It fails if the tx is not confirmed within cardanoPollTimeout.
-func pollCardanoConfirmation(txHash, apiKey string) (*cardanoTxResp, error) {
+func pollCardanoConfirmation(base, txHash, apiKey string) (*cardanoTxResp, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cardanoPollTimeout)
 	defer cancel()
 
 	for {
-		tx, err := getCardanoTx(ctx, txHash, apiKey)
+		tx, err := getCardanoTx(ctx, base, txHash, apiKey)
 		if err != nil {
 			return nil, err
 		}
@@ -433,10 +485,10 @@ func pollCardanoConfirmation(txHash, apiKey string) (*cardanoTxResp, error) {
 	}
 }
 
-// blockfrostGet issues an authenticated GET against the Blockfrost API. The caller
+// blockfrostGet issues an authenticated GET against the Blockfrost API at base+path. The caller
 // owns the returned response (must close its body) and handles the status code.
-func blockfrostGet(ctx context.Context, path, apiKey string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", blockfrostApi+path, nil)
+func blockfrostGet(ctx context.Context, base, path, apiKey string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", base+path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -446,8 +498,8 @@ func blockfrostGet(ctx context.Context, path, apiKey string) (*http.Response, er
 
 // getCardanoTx fetches a single tx from Blockfrost. It returns (nil, nil) when the tx
 // is not yet on-chain (HTTP 404), so the caller can keep polling.
-func getCardanoTx(ctx context.Context, txHash, apiKey string) (*cardanoTxResp, error) {
-	resp, err := blockfrostGet(ctx, "txs/"+txHash, apiKey)
+func getCardanoTx(ctx context.Context, base, txHash, apiKey string) (*cardanoTxResp, error) {
+	resp, err := blockfrostGet(ctx, base, "txs/"+txHash, apiKey)
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +571,7 @@ func parseCardanoUTXOs(uxtos uxtoResp) ([]cardanoUTXO, error) {
 // UTXOs (also largest first) only when pure-ADA funds are insufficient. It returns the selected
 // inputs as "hash#index" references, their total lovelace, and the aggregated native assets
 // across them (which the caller must return in the change output to preserve value). It returns
-// cardanoFaucetErr when the wallet's whole balance still cannot reach target.
+// errInsufficientFunds when the wallet's whole balance still cannot reach target.
 func selectCardanoUTXOs(utxos []cardanoUTXO, target int) (txIns []string, totalLovelace int, assets map[string]int, err error) {
 	// Order pure-ADA UTXOs ahead of token-bearing ones; largest lovelace first within each group.
 	order := make([]cardanoUTXO, len(utxos))
@@ -543,7 +595,7 @@ func selectCardanoUTXOs(utxos []cardanoUTXO, target int) (txIns []string, totalL
 			return txIns, totalLovelace, assets, nil
 		}
 	}
-	return nil, 0, nil, errors.New(cardanoFaucetErr)
+	return nil, 0, nil, errInsufficientFunds
 }
 
 // cardanoAssetID converts a Blockfrost asset unit (a 56-hex-char policy id immediately followed

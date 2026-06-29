@@ -1,17 +1,25 @@
 # Cardano
 
 integrity-v2 has preliminary support for registrations on the Cardano blockchain.
-Once configured, you can use the `register` commmand to store metadata on the "preview"
-testnet. For more information on registration in general, see other doc files like
-[registrations.md](./registrations.md).
+Once configured, you can use the `register` command to store metadata on either Cardano
+mainnet or the "preview" testnet. The target network is selected by the `--testnet` flag:
+without it, registration goes to **mainnet**; with `--testnet`, it goes to the **preview**
+testnet. (Note: this means a bare `register --on cardano` now targets mainnet — earlier
+versions always used preview.) For more information on registration in general, see other
+doc files like [registrations.md](./registrations.md).
 
 ## Setup
 
 - Create a directory to hold Cardano files, likely alongside other directories like `files` and `enc_keys`
 - Install the `cardano-cli` binary from [GitHub](https://github.com/intersectmbo/cardano-node/releases)
-- Sign up for [Blockfrost](https://blockfrost.io/) and get an API key for the Cardano preview chain
+- Sign up for [Blockfrost](https://blockfrost.io/) and get an API key for the network you
+  intend to use. Blockfrost keys are network-scoped: a key for mainnet begins with `mainnet`,
+  and a key for the preview testnet begins with `preview`. The key must match the network you
+  register on, or registration fails fast with a "key does not match the selected network"
+  error.
 
-Now you can add to your config file:
+Now you can add to your config file (use a `mainnet…` key for mainnet, or a `preview…` key
+for the preview testnet):
 
 ```toml
 [dirs]
@@ -23,21 +31,27 @@ cardano = "/path/to/cardano/storage/"
 cardano_cli = "/usr/bin/cardano-cli"
 
 [cardano]
-blockfrost_api_key = "previewABC123"
+blockfrost_api_key = "mainnetABC123"
 ```
 
 ## Registering
 
-Now you can run the registration command:
+To register on **mainnet**:
 
 ```
 starling file register --on cardano <CID>
 ```
 
+To register on the **preview** testnet instead, add `--testnet`:
+
+```
+starling file register --on cardano --testnet <CID>
+```
+
 The first time you try to register it will fail, because the newly created wallet
-has no tokens. As directed by the command you can get free tokens from the
-[faucet](https://docs.cardano.org/cardano-testnets/tools/faucet)
-and try to register again, which will then succeed.
+has no funds. On the preview testnet you can get free tokens from the
+[faucet](https://docs.cardano.org/cardano-testnets/tools/faucet); on mainnet you must
+send real ADA to the wallet address. Once funded, register again and it will succeed.
 
 ## Metadata
 
@@ -94,11 +108,15 @@ environment variables, so the normal `go test ./...` skips them and stays offlin
 Run them with `go test -run 'Cardano|Blockfrost' ./register/` (or, if you have
 [`just`](https://github.com/casey/just) installed, the shorthand `just test-cardano`).
 
+The tests pick their network from the `BLOCKFROST_PROJECT_ID` prefix — a `preview…` key runs
+them against the preview testnet, a `mainnet…` key against mainnet — so the same commands work
+for either network just by swapping the key.
+
 ### Read-path check (free, no wallet)
 
-`TestBlockfrostReadPath` only needs a Blockfrost **preview** `project_id`. Sign up at
-[blockfrost.io](https://blockfrost.io), create a project on the *Cardano preview* network,
-and copy the key. It makes read-only calls to the live API to confirm the assumptions the
+`TestBlockfrostReadPath` needs only a Blockfrost `project_id`. Sign up at
+[blockfrost.io](https://blockfrost.io), create a project on the network you want to test, and
+copy the key. It makes read-only calls to the live API to confirm the assumptions the
 confirmation polling depends on: that an unknown transaction returns HTTP 404 (the "still
 pending" signal) and that a confirmed transaction returns `block_height` / `block_time`.
 
@@ -106,11 +124,15 @@ pending" signal) and that a confirmed transaction returns `block_height` / `bloc
 BLOCKFROST_PROJECT_ID=previewXXXX go test -v -run Blockfrost ./register/
 ```
 
-### Full submit + confirm (spends preview tADA)
+The confirmed-transaction assertion uses a pinned preview transaction; on mainnet (which has no
+pinned hash) supply one with `CARDANO_CONFIRMED_TX=<hash>`, otherwise just that portion is
+skipped while the 404 check still runs.
 
-`TestCardanoRegisterE2E` runs the whole build → sign → submit → poll path on the preview
-testnet. It is opt-in via `CARDANO_E2E=1` and additionally needs `cardano-cli` and a
-directory for the wallet:
+### Full submit + confirm (spends funds)
+
+`TestCardanoRegisterE2E` runs the whole build → sign → submit → poll path against the key's
+network. It is opt-in via `CARDANO_E2E=1` and additionally needs `cardano-cli` and a directory
+for the wallet:
 
 ```
 BLOCKFROST_PROJECT_ID=previewXXXX \
@@ -119,9 +141,13 @@ CARDANO_DIR=/path/to/cardano/storage \
 CARDANO_E2E=1 go test -v -run Cardano ./register/
 ```
 
-On the first run the wallet is generated and the test fails, printing an address to fund
-from the [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet). Fund it, then
-re-run; the test asserts the returned record carries a positive block height/time and
-`status: "confirmed"`, and logs how long confirmation actually took (a sanity check on the
-polling timeout).
+With a **mainnet** key this test spends real ADA, so it requires a second explicit opt-in,
+`CARDANO_MAINNET_E2E=1`; without it the test skips loudly so a real-money transaction is never
+broadcast by accident. (A preview key needs only `CARDANO_E2E=1`.)
+
+On the first run the wallet is generated and the test fails, printing an address to fund — from
+the [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet) on preview, or by sending
+real ADA on mainnet. Fund it, then re-run; the test asserts the returned record carries a
+positive block height/time and `status: "confirmed"`, and logs how long confirmation actually
+took (a sanity check on the polling timeout).
 

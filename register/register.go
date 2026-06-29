@@ -28,7 +28,7 @@ func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon,cardano)")
 	fs.StringVar(&include, "include", "", "Comma-separated list of attributes to register (optional)")
-	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported)")
+	fs.BoolVar(&testnet, "testnet", false, "Register on a test network (if supported); for cardano this selects the preview testnet, and its absence selects mainnet")
 	fs.BoolVar(&dryRun, "dry-run", false, "show registration info without actually sending it")
 
 	err := fs.Parse(args)
@@ -152,7 +152,7 @@ func Run(args []string) error {
 	if isNumbers {
 		chainData, err = numbersRegister(requestBytes)
 	} else {
-		chainData, err = cardanoRegister(string(requestBytes))
+		chainData, err = cardanoRegister(string(requestBytes), testnet)
 	}
 	if err != nil {
 		return err

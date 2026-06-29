@@ -2,69 +2,99 @@ package register
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-// knownConfirmedPreviewTx is a real, already-confirmed transaction on the Cardano
-// "preview" testnet, taken from docs/cardano.md. It lets us validate the shape of
-// Blockfrost's GET /txs/{hash} response without submitting anything. Override with
-// CARDANO_CONFIRMED_TX if this tx is ever pruned.
-const knownConfirmedPreviewTx = "83d6d34c5f75faf0d441ffad3a537e4202325bb9eec3346b402907391df70985"
+// knownConfirmedTx maps a network name to a real, already-confirmed transaction on that network. It
+// lets us validate the shape of Blockfrost's GET /txs/{hash} response without submitting anything.
+// The preview hash is taken from docs/cardano.md. Mainnet has no pinned hash here (a confirmed
+// mainnet tx couldn't be verified offline when this was written), so on mainnet supply one via
+// CARDANO_CONFIRMED_TX; CARDANO_CONFIRMED_TX overrides any network.
+var knownConfirmedTx = map[string]string{
+	"preview": "83d6d34c5f75faf0d441ffad3a537e4202325bb9eec3346b402907391df70985",
+}
 
 func blockfrostKeyOrSkip(t *testing.T) string {
 	t.Helper()
 	key := os.Getenv("BLOCKFROST_PROJECT_ID")
 	if key == "" {
-		t.Skip("set BLOCKFROST_PROJECT_ID (a free preview project_id) to run Cardano integration tests")
+		t.Skip("set BLOCKFROST_PROJECT_ID (a network-scoped Blockfrost project_id) to run Cardano integration tests")
 	}
 	return key
 }
 
+// networkFromKey derives the target network from the BLOCKFROST_PROJECT_ID prefix (Blockfrost keys
+// are network-scoped), so the live tests exercise whatever network the provided key targets — the
+// same mapping the production key-prefix check relies on. It skips when the key is unset or is not a
+// preview/mainnet key.
+func networkFromKey(t *testing.T) cardanoNetwork {
+	t.Helper()
+	key := blockfrostKeyOrSkip(t)
+	switch {
+	case strings.HasPrefix(key, "preview"):
+		return cardanoNetworkFor(true)
+	case strings.HasPrefix(key, "mainnet"):
+		return cardanoNetworkFor(false)
+	default:
+		t.Skip("BLOCKFROST_PROJECT_ID must be a preview… or mainnet… key (preprod is not supported)")
+		return cardanoNetwork{}
+	}
+}
+
 // TestBlockfrostReadPath validates our assumptions about Blockfrost's GET /txs/{hash}
-// endpoint against the live preview API. It is read-only: no wallet, no funds, no submit,
-// so it only needs BLOCKFROST_PROJECT_ID. It pins the two load-bearing assumptions baked
-// into cardano.go's confirmation polling:
+// endpoint against the live API for whatever network the key targets. It is read-only: no wallet,
+// no funds, no submit, so it only needs BLOCKFROST_PROJECT_ID. It pins the two load-bearing
+// assumptions baked into cardano.go's confirmation polling:
 //   - an unknown / not-yet-included tx returns HTTP 404 (our "still pending" signal)
 //   - a confirmed tx returns block_height and block_time as positive integers
 func TestBlockfrostReadPath(t *testing.T) {
-	key := blockfrostKeyOrSkip(t)
+	net := networkFromKey(t)
+	key := os.Getenv("BLOCKFROST_PROJECT_ID")
 	ctx := context.Background()
 
-	confirmed := knownConfirmedPreviewTx
-	if v := os.Getenv("CARDANO_CONFIRMED_TX"); v != "" {
-		confirmed = v
+	// The confirmed-tx assertions need a real confirmed tx on this network. Prefer the explicit
+	// override, else the pinned per-network hash; on a network with neither (e.g. mainnet) skip
+	// just this portion — the network-agnostic 404 pending-signal check below still runs.
+	confirmed := os.Getenv("CARDANO_CONFIRMED_TX")
+	if confirmed == "" {
+		confirmed = knownConfirmedTx[net.name]
 	}
+	if confirmed != "" {
+		// 1. Confirmed tx, raw request — observe the real status code and body.
+		status, body := rawBlockfrostGet(t, ctx, net.blockfrostBase, "txs/"+confirmed, key)
+		t.Logf("confirmed tx %s: HTTP %d", confirmed, status)
+		t.Logf("confirmed tx body: %s", body)
+		if status != 200 {
+			t.Fatalf("expected HTTP 200 for a known confirmed tx, got %d (body: %s)", status, body)
+		}
 
-	// 1. Confirmed tx, raw request — observe the real status code and body.
-	status, body := rawBlockfrostGet(t, ctx, "txs/"+confirmed, key)
-	t.Logf("confirmed tx %s: HTTP %d", confirmed, status)
-	t.Logf("confirmed tx body: %s", body)
-	if status != 200 {
-		t.Fatalf("expected HTTP 200 for a known confirmed tx, got %d (body: %s)", status, body)
+		// 2. Same tx through our wrapper — assert the fields we persist actually decode.
+		tx, err := getCardanoTx(ctx, net.blockfrostBase, confirmed, key)
+		if err != nil {
+			t.Fatalf("getCardanoTx on confirmed tx: %v", err)
+		}
+		if tx == nil {
+			t.Fatal("getCardanoTx returned nil for a confirmed tx (wrongly treated it as pending)")
+		}
+		if tx.BlockHeight <= 0 || tx.BlockTime <= 0 {
+			t.Fatalf("block_height/block_time did not decode as positive ints: %+v", tx)
+		}
+		t.Logf("decoded block_height=%d block_time=%d (%s)", tx.BlockHeight, tx.BlockTime,
+			time.Unix(tx.BlockTime, 0).UTC())
+	} else {
+		t.Logf("no confirmed tx for network %q; set CARDANO_CONFIRMED_TX to exercise the confirmed-tx path", net.name)
 	}
-
-	// 2. Same tx through our wrapper — assert the fields we persist actually decode.
-	tx, err := getCardanoTx(ctx, confirmed, key)
-	if err != nil {
-		t.Fatalf("getCardanoTx on confirmed tx: %v", err)
-	}
-	if tx == nil {
-		t.Fatal("getCardanoTx returned nil for a confirmed tx (wrongly treated it as pending)")
-	}
-	if tx.BlockHeight <= 0 || tx.BlockTime <= 0 {
-		t.Fatalf("block_height/block_time did not decode as positive ints: %+v", tx)
-	}
-	t.Logf("decoded block_height=%d block_time=%d (%s)", tx.BlockHeight, tx.BlockTime,
-		time.Unix(tx.BlockTime, 0).UTC())
 
 	// 3. Bogus hash, raw — confirm "not found" really is 404, our pending signal.
 	bogus := "0000000000000000000000000000000000000000000000000000000000000000"
-	status, body = rawBlockfrostGet(t, ctx, "txs/"+bogus, key)
+	status, body := rawBlockfrostGet(t, ctx, net.blockfrostBase, "txs/"+bogus, key)
 	t.Logf("unknown tx: HTTP %d body: %s", status, body)
 	if status != 404 {
 		t.Errorf("expected HTTP 404 for an unknown tx (our pending signal); got %d. "+
@@ -73,12 +103,59 @@ func TestBlockfrostReadPath(t *testing.T) {
 	}
 
 	// 4. Bogus hash through the wrapper — should be (nil, nil), i.e. "keep polling".
-	tx, err = getCardanoTx(ctx, bogus, key)
+	tx, err := getCardanoTx(ctx, net.blockfrostBase, bogus, key)
 	if err != nil {
 		t.Fatalf("getCardanoTx on unknown tx returned an error instead of pending: %v", err)
 	}
 	if tx != nil {
 		t.Fatalf("getCardanoTx on unknown tx returned non-nil (not treated as pending): %+v", tx)
+	}
+}
+
+// TestCardanoNetworkFor checks that the --testnet flag maps to the right network descriptor
+// (offline). preview is the testnet; its absence is mainnet.
+func TestCardanoNetworkFor(t *testing.T) {
+	preview := cardanoNetworkFor(true)
+	if preview.name != "preview" ||
+		preview.blockfrostBase != "https://cardano-preview.blockfrost.io/api/v0/" ||
+		preview.keyPrefix != "preview" ||
+		strings.Join(preview.cliNetworkArgs, " ") != "--testnet-magic 2" {
+		t.Errorf("preview descriptor wrong: %+v", preview)
+	}
+
+	mainnet := cardanoNetworkFor(false)
+	if mainnet.name != "mainnet" ||
+		mainnet.blockfrostBase != "https://cardano-mainnet.blockfrost.io/api/v0/" ||
+		mainnet.keyPrefix != "mainnet" ||
+		strings.Join(mainnet.cliNetworkArgs, " ") != "--mainnet" {
+		t.Errorf("mainnet descriptor wrong: %+v", mainnet)
+	}
+}
+
+// TestCardanoCheckKeyNetwork checks that a Blockfrost key is accepted only when its network-scoped
+// prefix matches the selected network, and rejected otherwise (offline).
+func TestCardanoCheckKeyNetwork(t *testing.T) {
+	preview := cardanoNetworkFor(true)
+	mainnet := cardanoNetworkFor(false)
+
+	// Matching prefixes pass.
+	if err := cardanoCheckKeyNetwork(preview, "previewABC123"); err != nil {
+		t.Errorf("preview key against preview: unexpected error %v", err)
+	}
+	if err := cardanoCheckKeyNetwork(mainnet, "mainnetABC123"); err != nil {
+		t.Errorf("mainnet key against mainnet: unexpected error %v", err)
+	}
+
+	// Mismatched prefixes are rejected (the load-bearing safety check).
+	if err := cardanoCheckKeyNetwork(mainnet, "previewABC123"); err == nil {
+		t.Error("preview key against mainnet: expected error, got nil")
+	}
+	if err := cardanoCheckKeyNetwork(preview, "mainnetABC123"); err == nil {
+		t.Error("mainnet key against preview: expected error, got nil")
+	}
+	// A preprod key matches neither supported network.
+	if err := cardanoCheckKeyNetwork(preview, "preprodABC123"); err == nil {
+		t.Error("preprod key against preview: expected error, got nil")
 	}
 }
 
@@ -222,11 +299,11 @@ func TestSelectCardanoUTXOs(t *testing.T) {
 		}
 	})
 
-	// Whole balance below target -> faucet error.
+	// Whole balance below target -> insufficient-funds sentinel.
 	t.Run("insufficient funds", func(t *testing.T) {
 		_, _, _, err := selectCardanoUTXOs([]cardanoUTXO{pure("a#0", 100)}, cardanoFeePlaceholder)
-		if err == nil || err.Error() != cardanoFaucetErr {
-			t.Errorf("err = %v, want cardanoFaucetErr", err)
+		if !errors.Is(err, errInsufficientFunds) {
+			t.Errorf("err = %v, want errInsufficientFunds", err)
 		}
 	})
 }
@@ -318,12 +395,13 @@ func TestCardanoMinUTXO(t *testing.T) {
 	}
 }
 
-// TestBlockfrostProtocolParams confirms the live preview endpoint returns the fee
-// coefficients the dynamic fee calculation depends on, plus coins_per_utxo_size used for the
-// min-ada floor. Read-only: needs only BLOCKFROST_PROJECT_ID.
+// TestBlockfrostProtocolParams confirms the live endpoint (for whatever network the key targets)
+// returns the fee coefficients the dynamic fee calculation depends on, plus coins_per_utxo_size used
+// for the min-ada floor. Read-only: needs only BLOCKFROST_PROJECT_ID.
 func TestBlockfrostProtocolParams(t *testing.T) {
-	key := blockfrostKeyOrSkip(t)
-	pp, err := getCardanoProtocolParams(context.Background(), key)
+	net := networkFromKey(t)
+	key := os.Getenv("BLOCKFROST_PROJECT_ID")
+	pp, err := getCardanoProtocolParams(context.Background(), net.blockfrostBase, key)
 	if err != nil {
 		t.Fatalf("getCardanoProtocolParams: %v", err)
 	}
@@ -337,23 +415,35 @@ func TestBlockfrostProtocolParams(t *testing.T) {
 }
 
 // TestCardanoRegisterE2E runs the entire chain path — build, sign, submit, and poll to
-// confirmation — on the preview testnet with a synthetic message. It needs a funded
-// preview wallet and cardano-cli, so it is opt-in via CARDANO_E2E=1.
+// confirmation — with a synthetic message, against the network of the supplied key. It needs a
+// funded wallet and cardano-cli, so it is opt-in via CARDANO_E2E=1.
+//
+// The network is derived from the BLOCKFROST_PROJECT_ID prefix. A preview key spends preview tADA
+// and runs under CARDANO_E2E=1 alone. A mainnet key spends REAL ADA, so it additionally requires
+// CARDANO_MAINNET_E2E=1; without that second opt-in the test skips loudly so a real-money tx is
+// never broadcast by accident.
 //
 // Required env:
 //
-//	BLOCKFROST_PROJECT_ID  preview project_id
+//	BLOCKFROST_PROJECT_ID  network-scoped project_id (preview… or mainnet…)
 //	CARDANO_CLI            path to the cardano-cli binary
 //	CARDANO_DIR            dir holding (or to hold) the wallet keys + scratch files
-//	CARDANO_E2E=1          explicit opt-in (this spends preview tADA and can take minutes)
+//	CARDANO_E2E=1          explicit opt-in (spends funds and can take minutes)
+//	CARDANO_MAINNET_E2E=1  additional opt-in required only for a mainnet key (spends real ADA)
 //
 // On the first run the wallet is generated and the test fails asking you to fund the
-// printed address from the faucet; fund it, then re-run.
+// printed address; fund it, then re-run.
 func TestCardanoRegisterE2E(t *testing.T) {
 	if os.Getenv("CARDANO_E2E") == "" {
-		t.Skip("set CARDANO_E2E=1 to run the full submit+confirm test (spends preview tADA, takes minutes)")
+		t.Skip("set CARDANO_E2E=1 to run the full submit+confirm test (spends funds, takes minutes)")
 	}
-	key := blockfrostKeyOrSkip(t)
+	net := networkFromKey(t)
+	testnet := net.name == "preview"
+	if !testnet && os.Getenv("CARDANO_MAINNET_E2E") == "" {
+		t.Skip("refusing to run the spending E2E on MAINNET (would broadcast a real-ADA tx): " +
+			"set CARDANO_MAINNET_E2E=1 to explicitly opt in")
+	}
+	key := os.Getenv("BLOCKFROST_PROJECT_ID")
 	cli := os.Getenv("CARDANO_CLI")
 	dir := os.Getenv("CARDANO_DIR")
 	if cli == "" || dir == "" {
@@ -367,7 +457,7 @@ func TestCardanoRegisterE2E(t *testing.T) {
 	msg := fmt.Sprintf(`{"synthetic":true,"note":"cardano chain e2e","run":%d}`, time.Now().Unix())
 
 	start := time.Now()
-	data, err := cardanoRegister(msg)
+	data, err := cardanoRegister(msg, testnet)
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatalf("cardanoRegister failed after %s: %v", elapsed, err)
@@ -388,11 +478,11 @@ func TestCardanoRegisterE2E(t *testing.T) {
 	}
 }
 
-// rawBlockfrostGet performs a bare GET against the Blockfrost preview API and returns the
+// rawBlockfrostGet performs a bare GET against the Blockfrost API at base+path and returns the
 // status code and body, so tests can inspect exactly what the chain returns.
-func rawBlockfrostGet(t *testing.T, ctx context.Context, path, key string) (int, string) {
+func rawBlockfrostGet(t *testing.T, ctx context.Context, base, path, key string) (int, string) {
 	t.Helper()
-	resp, err := blockfrostGet(ctx, path, key)
+	resp, err := blockfrostGet(ctx, base, path, key)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -53,4 +53,6 @@ webhook_secret = "random_string" # A random string defined by us for auth in qs
 signing_domains = []             # Default if unspecified is "signing.app.browsertrix.com"
 
 [cardano]
-blockfrost_api_key = "previewABC123" # https://blockfrost.io
+# The key must match the target network: register --on cardano uses mainnet (a mainnet… key),
+# while register --on cardano --testnet uses the preview testnet (a preview… key). https://blockfrost.io
+blockfrost_api_key = "mainnetABC123"
