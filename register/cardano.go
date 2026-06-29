@@ -2,6 +2,7 @@ package register
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
@@ -23,11 +25,23 @@ const (
 	blockfrostApi    = "https://cardano-preview.blockfrost.io/api/v0/"
 	cardanoMsgNumber = 674     // Generic transaction message
 	cardanoFee       = 500_000 // XXX: overestimate fee for simplicity
+
+	cardanoPollInterval = 5 * time.Second  // gap between confirmation checks
+	cardanoPollTimeout  = 10 * time.Minute // give up (fail registration) after this
 )
 
 type cardanoChainData struct {
 	CardanoChain string `json:"cardano_chain"`
 	TxHash       string `json:"tx_hash"`
+	BlockHeight  int64  `json:"block_height"`
+	BlockTime    int64  `json:"block_time"` // unix seconds, from Blockfrost block_time
+	Status       string `json:"status"`     // "confirmed" (only confirmed txs are persisted)
+}
+
+// cardanoTxResp is the subset of Blockfrost's GET /txs/{hash} response we need.
+type cardanoTxResp struct {
+	BlockHeight int64 `json:"block_height"`
+	BlockTime   int64 `json:"block_time"`
 }
 
 func cardanoRegister(msg string) (*cardanoChainData, error) {
@@ -211,10 +225,80 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		return nil, err
 	}
 
+	// Poll until the transaction is included in a block, recording where it landed.
+	// A 200 from tx/submit only means the tx was accepted into the mempool.
+	fmt.Println("Waiting for on-chain confirmation")
+	tx, err := pollCardanoConfirmation(txHash, conf.Cardano.BlockfrostApiKey)
+	if err != nil {
+		return nil, err
+	}
+
 	return &cardanoChainData{
 		CardanoChain: "preview", // The hardcoded chain
 		TxHash:       txHash,
+		BlockHeight:  tx.BlockHeight,
+		BlockTime:    tx.BlockTime,
+		Status:       "confirmed",
 	}, nil
+}
+
+// pollCardanoConfirmation polls Blockfrost GET /txs/{hash} until txHash is included
+// in a block, returning its block height and time. Blockfrost returns 404 while the
+// tx is still pending. It fails if the tx is not confirmed within cardanoPollTimeout.
+func pollCardanoConfirmation(txHash, apiKey string) (*cardanoTxResp, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), cardanoPollTimeout)
+	defer cancel()
+
+	for {
+		tx, err := getCardanoTx(ctx, txHash, apiKey)
+		if err != nil {
+			return nil, err
+		}
+		if tx != nil {
+			return tx, nil
+		}
+
+		// Not on-chain yet; wait before the next check unless the deadline elapses.
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("cardano tx %s not confirmed within %s", txHash, cardanoPollTimeout)
+		case <-time.After(cardanoPollInterval):
+		}
+	}
+}
+
+// blockfrostGet issues an authenticated GET against the Blockfrost API. The caller
+// owns the returned response (must close its body) and handles the status code.
+func blockfrostGet(ctx context.Context, path, apiKey string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", blockfrostApi+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("project_id", apiKey)
+	return http.DefaultClient.Do(req)
+}
+
+// getCardanoTx fetches a single tx from Blockfrost. It returns (nil, nil) when the tx
+// is not yet on-chain (HTTP 404), so the caller can keep polling.
+func getCardanoTx(ctx context.Context, txHash, apiKey string) (*cardanoTxResp, error) {
+	resp, err := blockfrostGet(ctx, "txs/"+txHash, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, nil // not yet included in a block
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("blockfrost txs/%s returned status code %d", txHash, resp.StatusCode)
+	}
+
+	var tx cardanoTxResp
+	if err := json.NewDecoder(resp.Body).Decode(&tx); err != nil {
+		return nil, err
+	}
+	return &tx, nil
 }
 
 type uxtoResp []struct {

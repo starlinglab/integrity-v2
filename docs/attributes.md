@@ -166,6 +166,19 @@ Example:
       txHash: "0x78d30a13e4e6d38f8e574d381392152c88b1d40d4804763e7f080d18f968d625",
     },
   },
+  // Cardano example. Only confirmed (on-chain) transactions are recorded —
+  // registration fails if the tx is not confirmed within the polling timeout.
+  {
+    attrs: ["test"],
+    chain: "cardano",
+    data: {
+      cardano_chain: "preview", // Cardano network the tx landed on
+      tx_hash: "5f2e...c1a9",
+      block_height: 2901234, // block the tx was included in
+      block_time: 1719600000, // unix seconds, from Blockfrost block_time
+      status: "confirmed",
+    },
+  },
   // Minimal example
   {
     attrs: [],

@@ -49,3 +49,45 @@ the blockchain -- for example strings can only be 64 bytes long.
 An example of what metadata looks like when published on the blockchain can be seen
 [here](https://preview.cardanoscan.io/transaction/83d6d34c5f75faf0d441ffad3a537e4202325bb9eec3346b402907391df70985?tab=metadata).
 
+## Testing the chain integration
+
+The Cardano registration path (`register/cardano.go`) talks to the chain via Blockfrost,
+and that integration is validated independently of the Authenticated Attributes side —
+`cardanoRegister` takes a plain message string and never touches AuthAttr, so these tests
+use synthetic claims. They live in `register/cardano_integration_test.go` and are gated on
+environment variables, so the normal `go test ./...` skips them and stays offline.
+
+Run them with `go test -run 'Cardano|Blockfrost' ./register/` (or, if you have
+[`just`](https://github.com/casey/just) installed, the shorthand `just test-cardano`).
+
+### Read-path check (free, no wallet)
+
+`TestBlockfrostReadPath` only needs a Blockfrost **preview** `project_id`. Sign up at
+[blockfrost.io](https://blockfrost.io), create a project on the *Cardano preview* network,
+and copy the key. It makes read-only calls to the live API to confirm the assumptions the
+confirmation polling depends on: that an unknown transaction returns HTTP 404 (the "still
+pending" signal) and that a confirmed transaction returns `block_height` / `block_time`.
+
+```
+BLOCKFROST_PROJECT_ID=previewXXXX go test -v -run Blockfrost ./register/
+```
+
+### Full submit + confirm (spends preview tADA)
+
+`TestCardanoRegisterE2E` runs the whole build → sign → submit → poll path on the preview
+testnet. It is opt-in via `CARDANO_E2E=1` and additionally needs `cardano-cli` and a
+directory for the wallet:
+
+```
+BLOCKFROST_PROJECT_ID=previewXXXX \
+CARDANO_CLI=/usr/local/bin/cardano-cli \
+CARDANO_DIR=/path/to/cardano/storage \
+CARDANO_E2E=1 go test -v -run Cardano ./register/
+```
+
+On the first run the wallet is generated and the test fails, printing an address to fund
+from the [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet). Fund it, then
+re-run; the test asserts the returned record carries a positive block height/time and
+`status: "confirmed"`, and logs how long confirmation actually took (a sanity check on the
+polling timeout).
+
