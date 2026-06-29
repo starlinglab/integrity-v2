@@ -49,6 +49,14 @@ the blockchain -- for example strings can only be 64 bytes long.
 An example of what metadata looks like when published on the blockchain can be seen
 [here](https://preview.cardanoscan.io/transaction/83d6d34c5f75faf0d441ffad3a537e4202325bb9eec3346b402907391df70985?tab=metadata).
 
+## Fees
+
+The transaction fee is calculated dynamically rather than using a fixed overestimate. The
+current protocol fee parameters (`min_fee_a`, `min_fee_b`) are fetched from Blockfrost, the
+transaction is built and signed once to measure its on-chain size, and the fee is computed as
+`min_fee_b + min_fee_a × size` (plus a tiny safety margin). The change returned to the wallet
+is the input amount minus this fee.
+
 ## Testing the chain integration
 
 The Cardano registration path (`register/cardano.go`) talks to the chain via Blockfrost,

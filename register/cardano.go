@@ -23,11 +23,22 @@ import (
 const (
 	cardanoNetworkId = "2"
 	blockfrostApi    = "https://cardano-preview.blockfrost.io/api/v0/"
-	cardanoMsgNumber = 674     // Generic transaction message
-	cardanoFee       = 500_000 // XXX: overestimate fee for simplicity
+	cardanoMsgNumber = 674 // Generic transaction message
+
+	// cardanoFeePlaceholder is a stand-in fee used only to build and sign the tx once so
+	// we can measure its on-chain byte size. Its CBOR integer width (5 bytes, since it
+	// exceeds 65535) matches that of the real fee, so the measured size equals the final
+	// tx's size.
+	cardanoFeePlaceholder = 200_000
+	// cardanoFeeMargin is a small lovelace cushion added above the computed minimum fee.
+	// The minimum fee is a floor, so paying slightly over is always accepted; this absorbs
+	// any ±1-2 byte size drift between the measuring build and the final build.
+	cardanoFeeMargin = 1_000
 
 	cardanoPollInterval = 5 * time.Second  // gap between confirmation checks
 	cardanoPollTimeout  = 10 * time.Minute // give up (fail registration) after this
+
+	cardanoFaucetErr = "add more funds, go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet"
 )
 
 type cardanoChainData struct {
@@ -42,6 +53,13 @@ type cardanoChainData struct {
 type cardanoTxResp struct {
 	BlockHeight int64 `json:"block_height"`
 	BlockTime   int64 `json:"block_time"`
+}
+
+// cardanoProtocolParams is the subset of Blockfrost's GET /epochs/latest/parameters
+// response we need: the linear fee coefficients (fee = min_fee_b + min_fee_a*txSize).
+type cardanoProtocolParams struct {
+	MinFeeA int `json:"min_fee_a"`
+	MinFeeB int `json:"min_fee_b"`
 }
 
 func cardanoRegister(msg string) (*cardanoChainData, error) {
@@ -129,8 +147,18 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("blockfrost uxto quantity is unparseable: %v", err)
 	}
-	if quantity < cardanoFee {
-		return nil, fmt.Errorf("add more funds, go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet")
+	// Need at least enough to build the measuring transaction; the real fee (computed
+	// below) is smaller, so this is a conservative lower bound.
+	if quantity <= cardanoFeePlaceholder {
+		return nil, errors.New(cardanoFaucetErr)
+	}
+	txIn := uxtos[0].TxHash + "#" + strconv.Itoa(uxtos[0].TxIndex)
+
+	// Fetch the current protocol fee parameters so we can size the fee to the actual
+	// transaction instead of overpaying a static amount.
+	pp, err := getCardanoProtocolParams(context.Background(), conf.Cardano.BlockfrostApiKey)
+	if err != nil {
+		return nil, err
 	}
 
 	// Save message
@@ -142,56 +170,20 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		return nil, err
 	}
 
-	// Build transaction
-	fmt.Println("Building transaction")
-	err = runCardanoCmd(
-		"conway",
-		"transaction",
-		"build-raw",
-		"--tx-in",
-		uxtos[0].TxHash+"#"+strconv.Itoa(uxtos[0].TxIndex), // TODO: bad default
-		"--tx-out",
-		string(addr)+"+"+strconv.Itoa(quantity-cardanoFee),
-		"--fee",
-		strconv.Itoa(cardanoFee), // XXX: overestimated static fee
-		"--metadata-json-file",
-		filepath.Join(conf.Dirs.Cardano, "tx_message.json"),
-		"--out-file",
-		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
-	)
+	// Pass 1: build and sign with a placeholder fee solely to measure the signed tx size.
+	measured, err := buildAndSignCardanoTx(conf, string(addr), txIn, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sign transaction
-	fmt.Println("Signing transaction")
-	err = runCardanoCmd(
-		"conway",
-		"transaction",
-		"sign",
-		"--tx-body-file",
-		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
-		"--signing-key-file",
-		filepath.Join(conf.Dirs.Cardano, "payment.skey"),
-		"--testnet-magic",
-		cardanoNetworkId,
-		"--out-file",
-		filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"),
-	)
-	if err != nil {
-		return nil, err
+	// Compute the real fee from the protocol params and the measured size.
+	fee := cardanoMinFee(pp.MinFeeA, pp.MinFeeB, len(measured))
+	if quantity <= fee {
+		return nil, errors.New(cardanoFaucetErr)
 	}
 
-	// Extract CBOR from signed transaction
-	b, err = os.ReadFile(filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"))
-	if err != nil {
-		return nil, err
-	}
-	var data map[string]string
-	if err := json.Unmarshal(b, &data); err != nil {
-		return nil, err
-	}
-	txCbor, err := hex.DecodeString(data["cborHex"])
+	// Pass 2: rebuild and re-sign with the computed fee and matching change output.
+	txCbor, err := buildAndSignCardanoTx(conf, string(addr), txIn, fee, quantity-fee)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +232,91 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		BlockTime:    tx.BlockTime,
 		Status:       "confirmed",
 	}, nil
+}
+
+// buildAndSignCardanoTx builds a raw transaction spending txIn back to addr with the given
+// fee and change (change = input quantity - fee), attaching the metadata file written by the
+// caller, signs it, and returns the signed transaction's raw CBOR bytes. len(cbor) is the
+// transaction's on-chain size, used to compute the fee.
+func buildAndSignCardanoTx(conf *config.Config, addr, txIn string, fee, change int) ([]byte, error) {
+	fmt.Println("Building transaction")
+	err := runCardanoCmd(
+		"conway",
+		"transaction",
+		"build-raw",
+		"--tx-in",
+		txIn,
+		"--tx-out",
+		addr+"+"+strconv.Itoa(change),
+		"--fee",
+		strconv.Itoa(fee),
+		"--metadata-json-file",
+		filepath.Join(conf.Dirs.Cardano, "tx_message.json"),
+		"--out-file",
+		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("Signing transaction")
+	err = runCardanoCmd(
+		"conway",
+		"transaction",
+		"sign",
+		"--tx-body-file",
+		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
+		"--signing-key-file",
+		filepath.Join(conf.Dirs.Cardano, "payment.skey"),
+		"--testnet-magic",
+		cardanoNetworkId,
+		"--out-file",
+		filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := os.ReadFile(filepath.Join(conf.Dirs.Cardano, "tx_new_message.signed"))
+	if err != nil {
+		return nil, err
+	}
+	var data map[string]string
+	if err := json.Unmarshal(b, &data); err != nil {
+		return nil, err
+	}
+	return hex.DecodeString(data["cborHex"])
+}
+
+// cardanoMinFee returns the minimum fee (in lovelace) for a transaction of txSize bytes that
+// has no Plutus scripts: the Cardano ledger defines this as the linear function
+// minFeeB + minFeeA*size, to which we add cardanoFeeMargin as a small safety cushion.
+func cardanoMinFee(minFeeA, minFeeB, txSize int) int {
+	return minFeeB + minFeeA*txSize + cardanoFeeMargin
+}
+
+// getCardanoProtocolParams fetches the current epoch's protocol parameters from Blockfrost,
+// returning the linear fee coefficients used to size transaction fees.
+func getCardanoProtocolParams(ctx context.Context, apiKey string) (*cardanoProtocolParams, error) {
+	resp, err := blockfrostGet(ctx, "epochs/latest/parameters", apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("blockfrost epochs/latest/parameters returned status code %d", resp.StatusCode)
+	}
+
+	var pp cardanoProtocolParams
+	if err := json.NewDecoder(resp.Body).Decode(&pp); err != nil {
+		return nil, err
+	}
+	if pp.MinFeeA <= 0 || pp.MinFeeB <= 0 {
+		return nil, fmt.Errorf("blockfrost returned non-positive fee params: min_fee_a=%d min_fee_b=%d",
+			pp.MinFeeA, pp.MinFeeB)
+	}
+	return &pp, nil
 }
 
 // pollCardanoConfirmation polls Blockfrost GET /txs/{hash} until txHash is included

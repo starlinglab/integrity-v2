@@ -82,6 +82,35 @@ func TestBlockfrostReadPath(t *testing.T) {
 	}
 }
 
+// TestCardanoMinFee checks the linear min-fee formula (offline, no network). For a
+// script-free tx the ledger's minimum fee is min_fee_b + min_fee_a*size; cardanoMinFee
+// adds the small safety margin on top.
+func TestCardanoMinFee(t *testing.T) {
+	// Representative mainnet params at time of writing: a=44, b=155381.
+	if got, want := cardanoMinFee(44, 155381, 300), 155381+44*300+cardanoFeeMargin; got != want {
+		t.Errorf("cardanoMinFee(44, 155381, 300) = %d, want %d", got, want)
+	}
+	// Zero size still yields the fixed term plus the margin.
+	if got, want := cardanoMinFee(44, 155381, 0), 155381+cardanoFeeMargin; got != want {
+		t.Errorf("cardanoMinFee(44, 155381, 0) = %d, want %d", got, want)
+	}
+}
+
+// TestBlockfrostProtocolParams confirms the live preview endpoint returns the fee
+// coefficients the dynamic fee calculation depends on. Read-only: needs only
+// BLOCKFROST_PROJECT_ID.
+func TestBlockfrostProtocolParams(t *testing.T) {
+	key := blockfrostKeyOrSkip(t)
+	pp, err := getCardanoProtocolParams(context.Background(), key)
+	if err != nil {
+		t.Fatalf("getCardanoProtocolParams: %v", err)
+	}
+	if pp.MinFeeA <= 0 || pp.MinFeeB <= 0 {
+		t.Fatalf("expected positive fee params, got min_fee_a=%d min_fee_b=%d", pp.MinFeeA, pp.MinFeeB)
+	}
+	t.Logf("min_fee_a=%d min_fee_b=%d", pp.MinFeeA, pp.MinFeeB)
+}
+
 // TestCardanoRegisterE2E runs the entire chain path — build, sign, submit, and poll to
 // confirmation — on the preview testnet with a synthetic message. It needs a funded
 // preview wallet and cardano-cli, so it is opt-in via CARDANO_E2E=1.
