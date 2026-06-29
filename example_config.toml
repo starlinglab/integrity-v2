@@ -40,6 +40,13 @@ cardano_cli = "/usr/bin/cardano-cli"
 private_key = "/path/to/c2pa/private.key"
 sign_cert = "/path/to/c2pa/cert.pem"
 
+[trufo]
+# Hosted C2PA signer, used with: starling file c2pa --signer trufo
+api_key = "c2pa-sign-test:..."     # test- or prod-scoped key
+base_url = "https://api.trufo.ai"  # optional
+mode = "test"                      # "test" (default) or "prod"
+cawg_identity_id = "org_interim"   # "test" or "org_interim"
+
 [numbers]
 # Numbers protocol
 token = "MY_AUTH_TOKEN"
