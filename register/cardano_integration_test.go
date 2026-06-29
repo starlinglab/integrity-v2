@@ -96,6 +96,179 @@ func TestCardanoMinFee(t *testing.T) {
 	}
 }
 
+// TestParseCardanoUTXOs checks that the lovelace value is read from the "lovelace" unit
+// explicitly (not Amount[0]) and that native assets are collected separately (offline).
+func TestParseCardanoUTXOs(t *testing.T) {
+	// A UTXO whose first amount entry is a native asset, not lovelace, to prove we don't
+	// blindly trust Amount[0].
+	uxtos := uxtoResp{
+		{
+			TxHash:  "aaaa",
+			TxIndex: 1,
+			Amount: []struct {
+				Unit     string `json:"unit"`
+				Quantity string `json:"quantity"`
+			}{
+				{Unit: "policy1111111111111111111111111111111111111111111111111111tok", Quantity: "7"},
+				{Unit: "lovelace", Quantity: "1500000"},
+			},
+		},
+	}
+	got, err := parseCardanoUTXOs(uxtos)
+	if err != nil {
+		t.Fatalf("parseCardanoUTXOs: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d utxos, want 1", len(got))
+	}
+	if got[0].txIn != "aaaa#1" {
+		t.Errorf("txIn = %q, want %q", got[0].txIn, "aaaa#1")
+	}
+	if got[0].lovelace != 1500000 {
+		t.Errorf("lovelace = %d, want 1500000 (must come from the lovelace unit, not Amount[0])", got[0].lovelace)
+	}
+	if qty := got[0].assets["policy1111111111111111111111111111111111111111111111111111tok"]; qty != 7 {
+		t.Errorf("asset quantity = %d, want 7", qty)
+	}
+
+	// Unparseable quantity is a hard error.
+	bad := uxtoResp{{TxHash: "bbbb", TxIndex: 0, Amount: []struct {
+		Unit     string `json:"unit"`
+		Quantity string `json:"quantity"`
+	}{{Unit: "lovelace", Quantity: "not-a-number"}}}}
+	if _, err := parseCardanoUTXOs(bad); err == nil {
+		t.Error("expected error on unparseable quantity, got nil")
+	}
+}
+
+// TestSelectCardanoUTXOs checks the prefer-pure-ADA, largest-first selection strategy and
+// native-asset aggregation (offline).
+func TestSelectCardanoUTXOs(t *testing.T) {
+	pure := func(txIn string, lovelace int) cardanoUTXO {
+		return cardanoUTXO{txIn: txIn, lovelace: lovelace}
+	}
+	tok := func(txIn string, lovelace int, assets map[string]int) cardanoUTXO {
+		return cardanoUTXO{txIn: txIn, lovelace: lovelace, assets: assets}
+	}
+
+	// A single large pure-ADA UTXO is preferred over a larger token-bearing one.
+	t.Run("prefers pure ADA", func(t *testing.T) {
+		sel, total, assets, err := selectCardanoUTXOs([]cardanoUTXO{
+			tok("tok#0", 9_000_000, map[string]int{"u": 5}),
+			pure("pure#0", 2_000_000),
+		}, cardanoFeePlaceholder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sel) != 1 || sel[0] != "pure#0" {
+			t.Fatalf("selected %v, want only pure#0", sel)
+		}
+		if total != 2_000_000 {
+			t.Errorf("total = %d, want 2000000", total)
+		}
+		if len(assets) != 0 {
+			t.Errorf("assets = %v, want empty (pure-ADA path)", assets)
+		}
+	})
+
+	// Largest pure-ADA UTXO comes first.
+	t.Run("largest first", func(t *testing.T) {
+		sel, _, _, err := selectCardanoUTXOs([]cardanoUTXO{
+			pure("small#0", 1_000_000),
+			pure("big#0", 5_000_000),
+		}, cardanoFeePlaceholder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sel[0] != "big#0" {
+			t.Errorf("first selected = %q, want big#0", sel[0])
+		}
+	})
+
+	// No single UTXO suffices: accumulate multiple, summing lovelace.
+	t.Run("multi-input accumulation", func(t *testing.T) {
+		sel, total, _, err := selectCardanoUTXOs([]cardanoUTXO{
+			pure("a#0", 120_000),
+			pure("b#0", 120_000),
+		}, cardanoFeePlaceholder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sel) != 2 {
+			t.Fatalf("selected %d utxos, want 2", len(sel))
+		}
+		if total != 240_000 {
+			t.Errorf("total = %d, want 240000", total)
+		}
+	})
+
+	// Token UTXOs are pulled in only when needed, and their assets aggregate.
+	t.Run("token fallback aggregates assets", func(t *testing.T) {
+		sel, total, assets, err := selectCardanoUTXOs([]cardanoUTXO{
+			tok("t1#0", 150_000, map[string]int{"u": 3}),
+			tok("t2#0", 150_000, map[string]int{"u": 4, "v": 1}),
+		}, cardanoFeePlaceholder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sel) != 2 {
+			t.Fatalf("selected %d utxos, want 2", len(sel))
+		}
+		if total != 300_000 {
+			t.Errorf("total = %d, want 300000", total)
+		}
+		if assets["u"] != 7 || assets["v"] != 1 {
+			t.Errorf("assets = %v, want u=7 v=1", assets)
+		}
+	})
+
+	// Whole balance below target -> faucet error.
+	t.Run("insufficient funds", func(t *testing.T) {
+		_, _, _, err := selectCardanoUTXOs([]cardanoUTXO{pure("a#0", 100)}, cardanoFeePlaceholder)
+		if err == nil || err.Error() != cardanoFaucetErr {
+			t.Errorf("err = %v, want cardanoFaucetErr", err)
+		}
+	})
+}
+
+// TestCardanoAssetID checks Blockfrost-unit -> cardano-cli asset-id conversion (offline).
+func TestCardanoAssetID(t *testing.T) {
+	policy := "0123456789012345678901234567890123456789012345678901234a" // 56 chars
+	if len(policy) != 56 {
+		t.Fatalf("test policy id is %d chars, want 56", len(policy))
+	}
+	// Policy id + asset name hex -> dotted.
+	if got, want := cardanoAssetID(policy+"4d59"), policy+".4d59"; got != want {
+		t.Errorf("cardanoAssetID = %q, want %q", got, want)
+	}
+	// Bare policy id (no asset name) -> unchanged.
+	if got := cardanoAssetID(policy); got != policy {
+		t.Errorf("cardanoAssetID(bare) = %q, want %q", got, policy)
+	}
+}
+
+// TestCardanoTxOutValue checks the --tx-out value string, including deterministic asset
+// ordering regardless of map insertion order (offline).
+func TestCardanoTxOutValue(t *testing.T) {
+	policyA := "a123456789012345678901234567890123456789012345678901234a"
+	policyB := "b123456789012345678901234567890123456789012345678901234b"
+
+	// Lovelace-only output is just the number.
+	if got := cardanoTxOutValue(1_800_000, nil); got != "1800000" {
+		t.Errorf("lovelace-only = %q, want %q", got, "1800000")
+	}
+
+	// Multi-asset output: units sorted, so the result is stable across runs/insertion order.
+	want := "1800000+2 " + policyA + ".aa+5 " + policyB + ".bb"
+	if got := cardanoTxOutValue(1_800_000, map[string]int{policyB + "bb": 5, policyA + "aa": 2}); got != want {
+		t.Errorf("multi-asset = %q, want %q", got, want)
+	}
+	// Same assets, opposite insertion order -> identical string (determinism).
+	if got := cardanoTxOutValue(1_800_000, map[string]int{policyA + "aa": 2, policyB + "bb": 5}); got != want {
+		t.Errorf("non-deterministic output: %q", got)
+	}
+}
+
 // TestBlockfrostProtocolParams confirms the live preview endpoint returns the fee
 // coefficients the dynamic fee calculation depends on. Read-only: needs only
 // BLOCKFROST_PROJECT_ID.

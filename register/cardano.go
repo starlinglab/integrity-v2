@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 
@@ -141,18 +142,18 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		return nil, err
 	}
 
-	// Choose UXTO(s) to use
-	// TODO: don't just use the first one
-	quantity, err := strconv.Atoi(uxtos[0].Amount[0].Quantity)
+	// Choose UTXO(s) to spend. We need at least enough lovelace to build the measuring
+	// transaction; the real fee (computed below) is smaller, so cardanoFeePlaceholder is a
+	// conservative lower bound. Any native assets carried by the selected UTXOs are returned
+	// in the change output (see buildAndSignCardanoTx) so the transaction preserves value.
+	parsed, err := parseCardanoUTXOs(uxtos)
 	if err != nil {
-		return nil, fmt.Errorf("blockfrost uxto quantity is unparseable: %v", err)
+		return nil, err
 	}
-	// Need at least enough to build the measuring transaction; the real fee (computed
-	// below) is smaller, so this is a conservative lower bound.
-	if quantity <= cardanoFeePlaceholder {
-		return nil, errors.New(cardanoFaucetErr)
+	txIns, quantity, assets, err := selectCardanoUTXOs(parsed, cardanoFeePlaceholder)
+	if err != nil {
+		return nil, err
 	}
-	txIn := uxtos[0].TxHash + "#" + strconv.Itoa(uxtos[0].TxIndex)
 
 	// Fetch the current protocol fee parameters so we can size the fee to the actual
 	// transaction instead of overpaying a static amount.
@@ -171,7 +172,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}
 
 	// Pass 1: build and sign with a placeholder fee solely to measure the signed tx size.
-	measured, err := buildAndSignCardanoTx(conf, string(addr), txIn, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder)
+	measured, err := buildAndSignCardanoTx(conf, string(addr), txIns, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +184,7 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}
 
 	// Pass 2: rebuild and re-sign with the computed fee and matching change output.
-	txCbor, err := buildAndSignCardanoTx(conf, string(addr), txIn, fee, quantity-fee)
+	txCbor, err := buildAndSignCardanoTx(conf, string(addr), txIns, fee, quantity-fee, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -234,20 +235,21 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 	}, nil
 }
 
-// buildAndSignCardanoTx builds a raw transaction spending txIn back to addr with the given
-// fee and change (change = input quantity - fee), attaching the metadata file written by the
-// caller, signs it, and returns the signed transaction's raw CBOR bytes. len(cbor) is the
-// transaction's on-chain size, used to compute the fee.
-func buildAndSignCardanoTx(conf *config.Config, addr, txIn string, fee, change int) ([]byte, error) {
+// buildAndSignCardanoTx builds a raw transaction spending every txIn in txIns back to addr
+// with the given fee and change lovelace (change = total input lovelace - fee), returning any
+// native assets carried by the inputs to the same change output so the transaction preserves
+// value. It attaches the metadata file written by the caller, signs the tx, and returns the
+// signed transaction's raw CBOR bytes. len(cbor) is the transaction's on-chain size, used to
+// compute the fee.
+func buildAndSignCardanoTx(conf *config.Config, addr string, txIns []string, fee, change int, assets map[string]int) ([]byte, error) {
 	fmt.Println("Building transaction")
-	err := runCardanoCmd(
-		"conway",
-		"transaction",
-		"build-raw",
-		"--tx-in",
-		txIn,
+	args := []string{"conway", "transaction", "build-raw"}
+	for _, txIn := range txIns {
+		args = append(args, "--tx-in", txIn)
+	}
+	args = append(args,
 		"--tx-out",
-		addr+"+"+strconv.Itoa(change),
+		addr+"+"+cardanoTxOutValue(change, assets),
 		"--fee",
 		strconv.Itoa(fee),
 		"--metadata-json-file",
@@ -255,6 +257,7 @@ func buildAndSignCardanoTx(conf *config.Config, addr, txIn string, fee, change i
 		"--out-file",
 		filepath.Join(conf.Dirs.Cardano, "tx_new_message.draft"),
 	)
+	err := runCardanoCmd(args...)
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +388,104 @@ type uxtoResp []struct {
 		Unit     string `json:"unit"`
 		Quantity string `json:"quantity"`
 	} `json:"amount"`
+}
+
+// cardanoUTXO is a parsed unspent output ready for coin selection: its "hash#index"
+// reference, its lovelace value, and any native assets it carries keyed by Blockfrost
+// unit (policy id + asset name hex, concatenated).
+type cardanoUTXO struct {
+	txIn     string
+	lovelace int
+	assets   map[string]int
+}
+
+// cardanoLovelaceUnit is the Blockfrost "unit" denoting ADA (everything else is a native asset).
+const cardanoLovelaceUnit = "lovelace"
+
+// parseCardanoUTXOs converts a Blockfrost address-utxos response into cardanoUTXOs, reading the
+// lovelace value from the "lovelace" unit explicitly (rather than assuming Amount[0]) and
+// collecting every other unit as a native asset.
+func parseCardanoUTXOs(uxtos uxtoResp) ([]cardanoUTXO, error) {
+	out := make([]cardanoUTXO, 0, len(uxtos))
+	for _, u := range uxtos {
+		utxo := cardanoUTXO{txIn: u.TxHash + "#" + strconv.Itoa(u.TxIndex)}
+		for _, a := range u.Amount {
+			qty, err := strconv.Atoi(a.Quantity)
+			if err != nil {
+				return nil, fmt.Errorf("blockfrost uxto quantity for unit %q is unparseable: %v", a.Unit, err)
+			}
+			if a.Unit == cardanoLovelaceUnit {
+				utxo.lovelace += qty
+				continue
+			}
+			if utxo.assets == nil {
+				utxo.assets = map[string]int{}
+			}
+			utxo.assets[a.Unit] += qty
+		}
+		out = append(out, utxo)
+	}
+	return out, nil
+}
+
+// selectCardanoUTXOs chooses inputs to cover target lovelace. Strategy: prefer pure-ADA UTXOs
+// (largest first) so the common path carries no native assets, falling back to token-bearing
+// UTXOs (also largest first) only when pure-ADA funds are insufficient. It returns the selected
+// inputs as "hash#index" references, their total lovelace, and the aggregated native assets
+// across them (which the caller must return in the change output to preserve value). It returns
+// cardanoFaucetErr when the wallet's whole balance still cannot reach target.
+func selectCardanoUTXOs(utxos []cardanoUTXO, target int) (txIns []string, totalLovelace int, assets map[string]int, err error) {
+	// Order pure-ADA UTXOs ahead of token-bearing ones; largest lovelace first within each group.
+	order := make([]cardanoUTXO, len(utxos))
+	copy(order, utxos)
+	sort.SliceStable(order, func(i, j int) bool {
+		iPure, jPure := len(order[i].assets) == 0, len(order[j].assets) == 0
+		if iPure != jPure {
+			return iPure // pure-ADA first
+		}
+		return order[i].lovelace > order[j].lovelace // larger first
+	})
+
+	assets = map[string]int{}
+	for _, u := range order {
+		txIns = append(txIns, u.txIn)
+		totalLovelace += u.lovelace
+		for unit, qty := range u.assets {
+			assets[unit] += qty
+		}
+		if totalLovelace > target {
+			return txIns, totalLovelace, assets, nil
+		}
+	}
+	return nil, 0, nil, errors.New(cardanoFaucetErr)
+}
+
+// cardanoAssetID converts a Blockfrost asset unit (a 56-hex-char policy id immediately followed
+// by the asset name hex) into cardano-cli's "policyId.assetNameHex" form. A unit with no asset
+// name (bare policy id) yields just the policy id.
+func cardanoAssetID(unit string) string {
+	const policyIDLen = 56
+	if len(unit) <= policyIDLen {
+		return unit
+	}
+	return unit[:policyIDLen] + "." + unit[policyIDLen:]
+}
+
+// cardanoTxOutValue builds the value portion of a cardano-cli --tx-out for a change output
+// returning changeLovelace plus every native asset in assets. Asset units are sorted so the
+// output is deterministic: the two fee passes (placeholder then real) must produce a
+// byte-identical tx layout for the measured size to match the final one.
+func cardanoTxOutValue(changeLovelace int, assets map[string]int) string {
+	value := strconv.Itoa(changeLovelace)
+	units := make([]string, 0, len(assets))
+	for unit := range assets {
+		units = append(units, unit)
+	}
+	sort.Strings(units)
+	for _, unit := range units {
+		value += "+" + strconv.Itoa(assets[unit]) + " " + cardanoAssetID(unit)
+	}
+	return value
 }
 
 func runCardanoCmd(args ...string) error {

@@ -57,6 +57,15 @@ transaction is built and signed once to measure its on-chain size, and the fee i
 `min_fee_b + min_fee_a × size` (plus a tiny safety margin). The change returned to the wallet
 is the input amount minus this fee.
 
+## UTXO selection
+
+To pay for a registration the wallet must spend one or more of its unspent transaction outputs
+(UTXOs). Selection prefers **pure-ADA UTXOs, largest first**: it spends the largest plain-lovelace
+output that covers the fee, keeping transactions to a single input where possible. Only when the
+pure-ADA balance is insufficient does it pull in UTXOs that also carry native tokens (again largest
+first). Whenever a spent UTXO carries native assets, those exact assets are returned in the change
+output, so the transaction always preserves value and never burns tokens.
+
 ## Testing the chain integration
 
 The Cardano registration path (`register/cardano.go`) talks to the chain via Blockfrost,
