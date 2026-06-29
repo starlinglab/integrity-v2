@@ -42,6 +42,29 @@ const (
 	cardanoFaucetErr = "add more funds, go to the faucet: https://docs.cardano.org/cardano-testnets/tools/faucet"
 )
 
+// Conservative byte upper bounds used by cardanoMinUTXO to size a change output. The protocol
+// min-ada floor is (cardanoUTXOEntryOverhead + sizeInBytes(TxOut)) * coinsPerUTxOByte; every
+// constant below is chosen >= the maximum real CBOR encoding of its field, so the computed size
+// (and therefore the min-ada) is always an over-estimate of the ledger's true value. That keeps
+// the change output safely above the floor (never OutputTooSmallUTxO); the small overpay returns
+// to our own wallet as change.
+const (
+	// cardanoPolicyIDHexLen is the length of a policy id in a Blockfrost asset unit string: 28
+	// bytes encoded as hex. The remainder of the unit is the asset name hex.
+	cardanoPolicyIDHexLen = 56
+
+	cardanoUTXOEntryOverhead = 160 // ledger constant: input + utxo-map entry overhead
+	cardanoTxOutArrayHdr     = 1   // CBOR header for the [address, value] array
+	cardanoAddrBytes         = 59  // base addr: 57 payload bytes + 2-byte bytestring header
+	cardanoCoinBytes         = 9   // max uint64 coin: 0x1b + 8 bytes
+	cardanoValueArrayHdr     = 1   // header for [coin, multiasset] (multi-asset path only)
+	cardanoMultiassetMapHdr  = 2   // outer policy-map header (covers up to 255 policies)
+	cardanoPolicyBytes       = 30  // 28-byte policy id + 2-byte bytestring header
+	cardanoPolicyMapHdr      = 2   // per-policy inner asset-map header
+	cardanoAssetNameHdr      = 2   // per-asset name bytestring header (covers names up to 32 bytes)
+	cardanoAssetQtyBytes     = 9   // max uint64 asset quantity
+)
+
 type cardanoChainData struct {
 	CardanoChain string `json:"cardano_chain"`
 	TxHash       string `json:"tx_hash"`
@@ -57,10 +80,16 @@ type cardanoTxResp struct {
 }
 
 // cardanoProtocolParams is the subset of Blockfrost's GET /epochs/latest/parameters
-// response we need: the linear fee coefficients (fee = min_fee_b + min_fee_a*txSize).
+// response we need: the linear fee coefficients (fee = min_fee_b + min_fee_a*txSize) and the
+// per-byte UTXO cost used to compute the min-ada floor on the change output.
 type cardanoProtocolParams struct {
 	MinFeeA int `json:"min_fee_a"`
 	MinFeeB int `json:"min_fee_b"`
+	// CoinsPerUTXOSize is the lovelace cost per output byte. Blockfrost sends this as a JSON
+	// string (e.g. "4310"), unlike the numeric fee coefficients; getCardanoProtocolParams
+	// parses it into CoinsPerUTXOByte.
+	CoinsPerUTXOSize string `json:"coins_per_utxo_size"`
+	CoinsPerUTXOByte int    `json:"-"` // parsed from CoinsPerUTXOSize
 }
 
 func cardanoRegister(msg string) (*cardanoChainData, error) {
@@ -142,24 +171,48 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		return nil, err
 	}
 
-	// Choose UTXO(s) to spend. We need at least enough lovelace to build the measuring
-	// transaction; the real fee (computed below) is smaller, so cardanoFeePlaceholder is a
-	// conservative lower bound. Any native assets carried by the selected UTXOs are returned
-	// in the change output (see buildAndSignCardanoTx) so the transaction preserves value.
-	parsed, err := parseCardanoUTXOs(uxtos)
-	if err != nil {
-		return nil, err
-	}
-	txIns, quantity, assets, err := selectCardanoUTXOs(parsed, cardanoFeePlaceholder)
+	// Fetch the current protocol parameters: the fee coefficients (to size the fee to the
+	// actual transaction instead of overpaying a static amount) and coins_per_utxo_size (to
+	// compute the min-ada floor the change output must clear). Fetched before selection because
+	// the selection target depends on the min-ada value.
+	pp, err := getCardanoProtocolParams(context.Background(), conf.Cardano.BlockfrostApiKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch the current protocol fee parameters so we can size the fee to the actual
-	// transaction instead of overpaying a static amount.
-	pp, err := getCardanoProtocolParams(context.Background(), conf.Cardano.BlockfrostApiKey)
+	// Choose UTXO(s) to spend. The single change output must cover both the fee and the protocol
+	// min-ada floor, so we target minAda + cardanoFeePlaceholder (the placeholder is a
+	// conservative upper bound on the real fee, computed below). Any native assets carried by the
+	// selected UTXOs are returned in the change output (see buildAndSignCardanoTx) so the
+	// transaction preserves value; those assets raise the min-ada floor, so we recompute minAda
+	// from the actual selection and pull in more UTXOs until the change clears it. The loop is
+	// bounded: each non-breaking round strictly raises the target, forcing selectCardanoUTXOs to
+	// return a strictly longer prefix, and minAda is monotonic in the asset set so it cannot
+	// oscillate; exhaustion surfaces as cardanoFaucetErr.
+	parsed, err := parseCardanoUTXOs(uxtos)
 	if err != nil {
 		return nil, err
+	}
+	var (
+		txIns    []string
+		quantity int
+		assets   map[string]int
+		minAda   int
+	)
+	target := cardanoFeePlaceholder + cardanoMinUTXO(pp.CoinsPerUTXOByte, nil)
+	for i := 0; i <= len(parsed); i++ {
+		if i == len(parsed) { // safety net; the termination argument above makes this unreachable
+			return nil, errors.New(cardanoFaucetErr)
+		}
+		txIns, quantity, assets, err = selectCardanoUTXOs(parsed, target)
+		if err != nil {
+			return nil, err
+		}
+		minAda = cardanoMinUTXO(pp.CoinsPerUTXOByte, assets)
+		if quantity >= minAda+cardanoFeePlaceholder {
+			break
+		}
+		target = minAda + cardanoFeePlaceholder
 	}
 
 	// Save message
@@ -177,9 +230,12 @@ func cardanoRegister(msg string) (*cardanoChainData, error) {
 		return nil, err
 	}
 
-	// Compute the real fee from the protocol params and the measured size.
+	// Compute the real fee from the protocol params and the measured size. The change output
+	// (quantity - fee) must still clear the min-ada floor; the selection loop guarantees this
+	// whenever fee <= cardanoFeePlaceholder, so this guard only fires for an unusually large fee
+	// (e.g. very large metadata or many inputs).
 	fee := cardanoMinFee(pp.MinFeeA, pp.MinFeeB, len(measured))
-	if quantity <= fee {
+	if quantity < fee+minAda {
 		return nil, errors.New(cardanoFaucetErr)
 	}
 
@@ -319,7 +375,37 @@ func getCardanoProtocolParams(ctx context.Context, apiKey string) (*cardanoProto
 		return nil, fmt.Errorf("blockfrost returned non-positive fee params: min_fee_a=%d min_fee_b=%d",
 			pp.MinFeeA, pp.MinFeeB)
 	}
+	// coins_per_utxo_size arrives as a string; parse it for the min-ada calculation.
+	n, err := strconv.Atoi(pp.CoinsPerUTXOSize)
+	if err != nil || n <= 0 {
+		return nil, fmt.Errorf("blockfrost returned invalid coins_per_utxo_size %q", pp.CoinsPerUTXOSize)
+	}
+	pp.CoinsPerUTXOByte = n
 	return &pp, nil
+}
+
+// cardanoMinUTXO returns the protocol minimum lovelace (min-ada) for a change output to a Shelley
+// address carrying assets, computed as (cardanoUTXOEntryOverhead + sizeInBytes) * coinsPerUTxOByte
+// where sizeInBytes is a conservative upper bound on the output's serialized size (see the byte
+// constants above). Over-estimating the size means the result is always >= the ledger's true
+// min-ada, so a change output funded to this value never trips OutputTooSmallUTxO. assets keys are
+// Blockfrost units (56-char policy id hex + asset-name hex), matching cardanoAssetID's split.
+func cardanoMinUTXO(coinsPerUTxOByte int, assets map[string]int) int {
+	size := cardanoTxOutArrayHdr + cardanoAddrBytes + cardanoCoinBytes // ada-only: bare coin value
+	if len(assets) > 0 {
+		size += cardanoValueArrayHdr + cardanoMultiassetMapHdr
+		policies := map[string]struct{}{}
+		for unit := range assets {
+			policy, name := unit, ""
+			if len(unit) > cardanoPolicyIDHexLen { // remainder past the policy id is asset-name hex
+				policy, name = unit[:cardanoPolicyIDHexLen], unit[cardanoPolicyIDHexLen:]
+			}
+			policies[policy] = struct{}{}
+			size += cardanoAssetNameHdr + len(name)/2 + cardanoAssetQtyBytes // hex/2 = name bytes
+		}
+		size += len(policies) * (cardanoPolicyBytes + cardanoPolicyMapHdr)
+	}
+	return (cardanoUTXOEntryOverhead + size) * coinsPerUTxOByte
 }
 
 // pollCardanoConfirmation polls Blockfrost GET /txs/{hash} until txHash is included
@@ -464,11 +550,10 @@ func selectCardanoUTXOs(utxos []cardanoUTXO, target int) (txIns []string, totalL
 // by the asset name hex) into cardano-cli's "policyId.assetNameHex" form. A unit with no asset
 // name (bare policy id) yields just the policy id.
 func cardanoAssetID(unit string) string {
-	const policyIDLen = 56
-	if len(unit) <= policyIDLen {
+	if len(unit) <= cardanoPolicyIDHexLen {
 		return unit
 	}
-	return unit[:policyIDLen] + "." + unit[policyIDLen:]
+	return unit[:cardanoPolicyIDHexLen] + "." + unit[cardanoPolicyIDHexLen:]
 }
 
 // cardanoTxOutValue builds the value portion of a cardano-cli --tx-out for a change output

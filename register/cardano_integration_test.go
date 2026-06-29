@@ -269,9 +269,58 @@ func TestCardanoTxOutValue(t *testing.T) {
 	}
 }
 
+// TestCardanoMinUTXO checks the conservative min-ada calculation for a change output (offline).
+// Values are pinned at coinsPerUTxOByte=4310 (the current preview/mainnet value). The load-bearing
+// assertion is that the ada-only result is >= the documented real ledger minimum (969_750): the
+// calculation must always over-estimate so a funded change output never trips OutputTooSmallUTxO.
+func TestCardanoMinUTXO(t *testing.T) {
+	const coinsPerByte = 4310
+	policyA := "a123456789012345678901234567890123456789012345678901234a" // 56 chars
+	policyB := "b123456789012345678901234567890123456789012345678901234b" // 56 chars
+
+	// Ada-only: deterministic pin AND the conservative-floor guarantee against the real minimum.
+	adaOnly := cardanoMinUTXO(coinsPerByte, nil)
+	if adaOnly != 986_990 {
+		t.Errorf("ada-only min-ada = %d, want 986990", adaOnly)
+	}
+	if adaOnly < 969_750 {
+		t.Errorf("ada-only min-ada = %d underestimates the real ledger minimum 969750", adaOnly)
+	}
+
+	// Single token (name 4d59 = 2 bytes): higher floor than ada-only.
+	single := cardanoMinUTXO(coinsPerByte, map[string]int{policyA + "4d59": 1})
+	if single != 1_193_870 {
+		t.Errorf("single-token min-ada = %d, want 1193870", single)
+	}
+
+	// Two assets under one policy: per-asset cost without an extra policy.
+	twoAssets := cardanoMinUTXO(coinsPerByte, map[string]int{policyA + "4d59": 1, policyA + "4e4654": 2})
+	if twoAssets != 1_254_210 {
+		t.Errorf("two-asset min-ada = %d, want 1254210", twoAssets)
+	}
+
+	// Two policies: per-policy cost.
+	twoPolicies := cardanoMinUTXO(coinsPerByte, map[string]int{policyA + "4d59": 1, policyB + "4d59": 1})
+	if twoPolicies != 1_387_820 {
+		t.Errorf("two-policy min-ada = %d, want 1387820", twoPolicies)
+	}
+
+	// Bare policy id (len 56, no asset name) is one policy with zero name bytes; still > ada-only.
+	bare := cardanoMinUTXO(coinsPerByte, map[string]int{policyA: 5})
+	if bare <= adaOnly {
+		t.Errorf("bare-policy min-ada = %d, want > ada-only %d", bare, adaOnly)
+	}
+
+	// Monotonicity: more assets / policies never lowers the floor.
+	if adaOnly >= single || single >= twoAssets || twoAssets >= twoPolicies {
+		t.Errorf("min-ada not monotonic: adaOnly=%d single=%d twoAssets=%d twoPolicies=%d",
+			adaOnly, single, twoAssets, twoPolicies)
+	}
+}
+
 // TestBlockfrostProtocolParams confirms the live preview endpoint returns the fee
-// coefficients the dynamic fee calculation depends on. Read-only: needs only
-// BLOCKFROST_PROJECT_ID.
+// coefficients the dynamic fee calculation depends on, plus coins_per_utxo_size used for the
+// min-ada floor. Read-only: needs only BLOCKFROST_PROJECT_ID.
 func TestBlockfrostProtocolParams(t *testing.T) {
 	key := blockfrostKeyOrSkip(t)
 	pp, err := getCardanoProtocolParams(context.Background(), key)
@@ -281,7 +330,10 @@ func TestBlockfrostProtocolParams(t *testing.T) {
 	if pp.MinFeeA <= 0 || pp.MinFeeB <= 0 {
 		t.Fatalf("expected positive fee params, got min_fee_a=%d min_fee_b=%d", pp.MinFeeA, pp.MinFeeB)
 	}
-	t.Logf("min_fee_a=%d min_fee_b=%d", pp.MinFeeA, pp.MinFeeB)
+	if pp.CoinsPerUTXOByte <= 0 {
+		t.Fatalf("expected positive coins_per_utxo_size, got %d (raw %q)", pp.CoinsPerUTXOByte, pp.CoinsPerUTXOSize)
+	}
+	t.Logf("min_fee_a=%d min_fee_b=%d coins_per_utxo_size=%d", pp.MinFeeA, pp.MinFeeB, pp.CoinsPerUTXOByte)
 }
 
 // TestCardanoRegisterE2E runs the entire chain path — build, sign, submit, and poll to
