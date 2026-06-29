@@ -9,6 +9,10 @@ build/*
 !example_config.toml
 sandbox
 
+# Local Trufo/C2PA evaluation artifacts (signed media, manifests)
+test-data/
+.DS_Store
+
 # Created by https://www.toptal.com/developers/gitignore/api/go,linux,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,linux,visualstudiocode
 
