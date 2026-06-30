@@ -36,6 +36,28 @@ const (
 
 	cardanoPollInterval = 5 * time.Second  // gap between confirmation checks
 	cardanoPollTimeout  = 10 * time.Minute // give up (fail registration) after this
+
+	// Conservative byte upper bounds used by cardanoMinUTXO to size a change output. The protocol
+	// min-ada floor is (cardanoUTXOEntryOverhead + sizeInBytes(TxOut)) * coinsPerUTxOByte; every
+	// constant below is chosen >= the maximum real CBOR encoding of its field, so the computed size
+	// (and therefore the min-ada) is always an over-estimate of the ledger's true value. That keeps
+	// the change output safely above the floor (never OutputTooSmallUTxO); the small overpay returns
+	// to our own wallet as change.
+	//
+	// cardanoPolicyIDHexLen is the length of a policy id in a Blockfrost asset unit string: 28
+	// bytes encoded as hex. The remainder of the unit is the asset name hex.
+	cardanoPolicyIDHexLen = 56
+
+	cardanoUTXOEntryOverhead = 160 // ledger constant: input + utxo-map entry overhead
+	cardanoTxOutArrayHdr     = 1   // CBOR header for the [address, value] array
+	cardanoAddrBytes         = 59  // base addr: 57 payload bytes + 2-byte bytestring header
+	cardanoCoinBytes         = 9   // max uint64 coin: 0x1b + 8 bytes
+	cardanoValueArrayHdr     = 1   // header for [coin, multiasset] (multi-asset path only)
+	cardanoMultiassetMapHdr  = 2   // outer policy-map header (covers up to 255 policies)
+	cardanoPolicyBytes       = 30  // 28-byte policy id + 2-byte bytestring header
+	cardanoPolicyMapHdr      = 2   // per-policy inner asset-map header
+	cardanoAssetNameHdr      = 2   // per-asset name bytestring header (covers names up to 32 bytes)
+	cardanoAssetQtyBytes     = 9   // max uint64 asset quantity
 )
 
 // errInsufficientFunds is the sentinel returned by selectCardanoUTXOs (and the in-register guards)
@@ -85,29 +107,6 @@ func cardanoCheckKeyNetwork(net cardanoNetwork, key string) error {
 	}
 	return nil
 }
-
-// Conservative byte upper bounds used by cardanoMinUTXO to size a change output. The protocol
-// min-ada floor is (cardanoUTXOEntryOverhead + sizeInBytes(TxOut)) * coinsPerUTxOByte; every
-// constant below is chosen >= the maximum real CBOR encoding of its field, so the computed size
-// (and therefore the min-ada) is always an over-estimate of the ledger's true value. That keeps
-// the change output safely above the floor (never OutputTooSmallUTxO); the small overpay returns
-// to our own wallet as change.
-const (
-	// cardanoPolicyIDHexLen is the length of a policy id in a Blockfrost asset unit string: 28
-	// bytes encoded as hex. The remainder of the unit is the asset name hex.
-	cardanoPolicyIDHexLen = 56
-
-	cardanoUTXOEntryOverhead = 160 // ledger constant: input + utxo-map entry overhead
-	cardanoTxOutArrayHdr     = 1   // CBOR header for the [address, value] array
-	cardanoAddrBytes         = 59  // base addr: 57 payload bytes + 2-byte bytestring header
-	cardanoCoinBytes         = 9   // max uint64 coin: 0x1b + 8 bytes
-	cardanoValueArrayHdr     = 1   // header for [coin, multiasset] (multi-asset path only)
-	cardanoMultiassetMapHdr  = 2   // outer policy-map header (covers up to 255 policies)
-	cardanoPolicyBytes       = 30  // 28-byte policy id + 2-byte bytestring header
-	cardanoPolicyMapHdr      = 2   // per-policy inner asset-map header
-	cardanoAssetNameHdr      = 2   // per-asset name bytestring header (covers names up to 32 bytes)
-	cardanoAssetQtyBytes     = 9   // max uint64 asset quantity
-)
 
 type cardanoChainData struct {
 	CardanoChain string `json:"cardano_chain"`
@@ -250,10 +249,7 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 		minAda   int
 	)
 	target := cardanoFeePlaceholder + cardanoMinUTXO(pp.CoinsPerUTXOByte, nil)
-	for i := 0; i <= len(parsed); i++ {
-		if i == len(parsed) { // safety net; the termination argument above makes this unreachable
-			return nil, fmt.Errorf("add more funds, %s", net.fundingHint)
-		}
+	for {
 		txIns, quantity, assets, err = selectCardanoUTXOs(parsed, target)
 		if err != nil {
 			if errors.Is(err, errInsufficientFunds) {
@@ -613,16 +609,18 @@ func cardanoAssetID(unit string) string {
 // output is deterministic: the two fee passes (placeholder then real) must produce a
 // byte-identical tx layout for the measured size to match the final one.
 func cardanoTxOutValue(changeLovelace int, assets map[string]int) string {
-	value := strconv.Itoa(changeLovelace)
 	units := make([]string, 0, len(assets))
 	for unit := range assets {
 		units = append(units, unit)
 	}
 	sort.Strings(units)
+
+	var value strings.Builder
+	value.WriteString(strconv.Itoa(changeLovelace))
 	for _, unit := range units {
-		value += "+" + strconv.Itoa(assets[unit]) + " " + cardanoAssetID(unit)
+		value.WriteString("+" + strconv.Itoa(assets[unit]) + " " + cardanoAssetID(unit))
 	}
-	return value
+	return value.String()
 }
 
 func runCardanoCmd(args ...string) error {
@@ -648,10 +646,7 @@ func cardanoSplitStr(msg string) []string {
 	// https://developers.cardano.org/docs/transaction-metadata/
 	ss := make([]string, (len(msg)+64-1)/64) // ceiling division
 	for i := range ss {
-		high := i*64 + 64
-		if high > len(msg) {
-			high = len(msg)
-		}
+		high := min(i*64+64, len(msg))
 		ss[i] = msg[i*64 : high]
 	}
 	return ss
