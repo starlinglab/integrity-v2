@@ -277,9 +277,10 @@ func parseBundleAssetInfo(zipReader *zip.ReadCloser) (map[string]*zip.File, [][]
 			fileMap[file.Name] = file
 			if rc, err := file.Open(); err == nil {
 				h := sha256.New()
-				io.Copy(h, rc)
+				if _, err := io.Copy(h, rc); err == nil {
+					fileMap[hex.EncodeToString(h.Sum(nil))] = file
+				}
 				rc.Close()
-				fileMap[hex.EncodeToString(h.Sum(nil))] = file
 			}
 		}
 	}
