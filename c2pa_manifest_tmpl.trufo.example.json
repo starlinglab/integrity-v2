@@ -1,0 +1,15 @@
+{
+  "actions": [],
+  "assertions": [
+    ["cawg_metadata", {
+      "assertion": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "dc:creator": ["{{author}}"]
+      }
+    }],
+    ["custom", {
+      "label": "org.starlinglab.attributes",
+      "assertion": { "time_created": "{{time_created}}" }
+    }]
+  ]
+}

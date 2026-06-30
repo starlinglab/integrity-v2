@@ -21,6 +21,7 @@ import (
 var (
 	manifestName string
 	dryRun       bool
+	signer       string
 	cid          string
 )
 
@@ -28,14 +29,13 @@ func Run(args []string) error {
 	fs := flag.NewFlagSet("c2pa", flag.ContinueOnError)
 	fs.StringVar(&manifestName, "manifest", "", "name of the C2PA manifest template")
 	fs.BoolVar(&dryRun, "dry-run", false, "show manifest without injecting any files")
+	fs.StringVar(&signer, "signer", "local", "signer backend: local or trufo")
 
-	err := fs.Parse(args)
-	if err != nil {
+	if err := fs.Parse(args); err != nil {
 		// Error is already printed
 		os.Exit(1)
 	}
 
-	// Validate input
 	if manifestName == "" {
 		fs.PrintDefaults()
 		return fmt.Errorf("\nprovide manifest name with --manifest")
@@ -43,161 +43,134 @@ func Run(args []string) error {
 	if fs.NArg() != 1 {
 		return fmt.Errorf("provide a single CID to work with")
 	}
-
 	cid = fs.Arg(0)
-
 	conf := config.GetConfig()
 
-	// Read manifest template and replace variables in it
-
-	manifestPath := filepath.Join(conf.Dirs.C2PAManifestTmpls, manifestName+".json")
-	b, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return fmt.Errorf("error reading manifest: %w", err)
+	var tmpOut string
+	var err error
+	switch signer {
+	case "local":
+		tmpOut, err = signLocal(conf)
+	case "trufo":
+		tmpOut, err = signTrufo(conf)
+	default:
+		return fmt.Errorf("unknown signer %q (use local or trufo)", signer)
 	}
-	var manifestTmpl map[string]any
-	err = json.Unmarshal(b, &manifestTmpl)
-	if err != nil {
-		return fmt.Errorf("error parsing manifest: %w", err)
-	}
-
-	// Replace assertions with attributes
-	_, ok := manifestTmpl["assertions"]
-	if !ok {
-		return fmt.Errorf("'assertions' not in manifest template")
-	}
-	manifestTmpl["assertions"], err = jsonReplace(manifestTmpl["assertions"], false)
-	if err != nil {
-		return fmt.Errorf("error replacing assertion values in manifest: %w", err)
-	}
-
-	// Replace credentials with VCs
-	_, ok = manifestTmpl["credentials"]
-	if ok {
-		manifestTmpl["credentials"], err = jsonReplace(manifestTmpl["credentials"], true)
-		if err != nil {
-			return fmt.Errorf("error replacing credential values in manifest: %w", err)
-		}
-	}
-
-	if dryRun {
-		j, err := json.MarshalIndent(manifestTmpl, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error encoding replaced manifest JSON: %w", err)
-		}
-		os.Stdout.Write(j)
-		fmt.Println()
-		return nil
-	}
-
-	manifestJson, err := json.Marshal(manifestTmpl)
-	if err != nil {
-		return fmt.Errorf("error encoding replaced manifest JSON: %w", err)
-	}
-
-	// File extension is required by c2patool, so figure that out first.
-	// In theory this is stored by AA, but for now let's just determine it by
-	// looking at the file.
-	//
-	// There is an open issue for this, so eventually this code can be removed.
-	// https://github.com/contentauth/c2patool/issues/150
-
-	cidPath := filepath.Join(conf.Dirs.Files, cid)
-	mediaType, err := util.GuessMediaType(cidPath)
 	if err != nil {
 		return err
 	}
+	if dryRun {
+		// Builders printed the preview.
+		return nil
+	}
+	return finishExport(conf, signer, tmpOut)
+}
 
-	var extension string
-	// https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats
-	// https://cs.opensource.google/go/go/+/refs/tags/go1.22.3:src/net/http/sniff.go;l=66
-	switch mediaType {
-	case "video/avi":
-		extension = "avi"
-	case "image/jpeg":
-		extension = "jpeg"
-	case "audio/mpeg":
-		extension = "mp3"
-	case "video/mp4":
-		// Note .m4a (audio/mp4) files also end up here due to the web spec that
-		// http.DetectContentType follows.
-		extension = "mp4"
-	case "image/png":
-		extension = "png"
-	case "audio/wave":
-		extension = "wav"
-	case "image/webp":
-		extension = "webp"
-	default:
-		return fmt.Errorf("detected file type %s not supported by this application,"+
-			"possibly not by c2patool either. See "+
-			"https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats",
-			mediaType,
-		)
+// signLocal signs with the local c2patool binary and returns the signed temp
+// file path.
+func signLocal(conf *config.Config) (string, error) {
+	manifestTmpl, err := buildLocalManifest(conf)
+	if err != nil {
+		return "", err
+	}
+	if dryRun {
+		return "", printJSON(manifestTmpl)
+	}
+	manifestJson, err := json.Marshal(manifestTmpl)
+	if err != nil {
+		return "", fmt.Errorf("error encoding replaced manifest JSON: %w", err)
 	}
 
-	// Store output in temporary file (later renamed to its CID)
+	// c2patool requires a file extension, so determine it from the file and
+	// give it a symlinked input. The stored output is keyed by CID with no
+	// extension.
+	cidPath := filepath.Join(conf.Dirs.Files, cid)
+	mediaType, err := util.GuessMediaType(cidPath)
+	if err != nil {
+		return "", err
+	}
+	extension, err := extensionFor(mediaType)
+	if err != nil {
+		return "", err
+	}
+
 	tmpOut := filepath.Join(util.TempDir(), "inject_c2pa-")
 	tmpOut += strconv.FormatUint(rand.Uint64(), 10) + "." + extension
 
-	// Add extension to input file (required by c2patool, see above)
-	// by creating a symbolic link in a temp dir
 	cidSymlink := filepath.Join(util.TempDir(), cid) + "." + extension
 	os.Remove(cidSymlink) // In case it was already created
-	err = os.Symlink(cidPath, cidSymlink)
-	if err != nil {
-		return fmt.Errorf("error creating symlink to CID file: %w", err)
+	if err := os.Symlink(cidPath, cidSymlink); err != nil {
+		return "", fmt.Errorf("error creating symlink to CID file: %w", err)
 	}
 	defer os.Remove(cidSymlink)
 
-	// Load c2patool certs
 	c2paPrivKey, err := os.ReadFile(conf.C2PA.PrivateKey)
 	if err != nil {
-		return fmt.Errorf("error reading c2pa.private_key file: %w", err)
+		return "", fmt.Errorf("error reading c2pa.private_key file: %w", err)
 	}
 	c2paSignCert, err := os.ReadFile(conf.C2PA.SignCert)
 	if err != nil {
-		return fmt.Errorf("error reading c2pa.sign_cert file: %w", err)
+		return "", fmt.Errorf("error reading c2pa.sign_cert file: %w", err)
 	}
-
-	// Run c2patool
 
 	if conf.Bins.C2patool == "" {
-		return fmt.Errorf("c2patool path not configured")
+		return "", fmt.Errorf("c2patool path not configured")
 	}
-
-	cmd := exec.Command(
-		conf.Bins.C2patool,
-		cidSymlink,
-		"--config",
-		string(manifestJson),
-		"--output",
-		tmpOut,
-	)
-
-	// Provide cert and key for c2patool
+	cmd := exec.Command(conf.Bins.C2patool, cidSymlink, "--config", string(manifestJson), "--output", tmpOut)
 	// https://github.com/contentauth/c2patool/blob/main/docs/x_509.md
 	cmd.Env = append(os.Environ(),
 		"C2PA_PRIVATE_KEY="+string(c2paPrivKey),
 		"C2PA_SIGN_CERT="+string(c2paSignCert),
 	)
-
 	toolOutput, err := cmd.CombinedOutput()
 	if errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("c2patool not found at configured path, may not be installed: %s", conf.Bins.C2patool)
+		return "", fmt.Errorf("c2patool not found at configured path, may not be installed: %s", conf.Bins.C2patool)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "\n%s\n", toolOutput)
-		return fmt.Errorf("c2patool failed, see its output above. Make sure it is installed and at the configured path")
+		return "", fmt.Errorf("c2patool failed, see its output above. Make sure it is installed and at the configured path")
+	}
+	return tmpOut, nil
+}
+
+// signTrufo signs via Trufo's hosted API and returns the signed temp file path.
+func signTrufo(conf *config.Config) (string, error) {
+	actions, assertions, err := buildTrufoAssertions(conf)
+	if err != nil {
+		return "", err
+	}
+	if dryRun {
+		return "", printJSON(map[string]any{"actions": actions, "assertions": assertions})
+	}
+	if conf.Trufo.ApiKey == "" {
+		return "", fmt.Errorf("trufo.api_key not set in config file")
 	}
 
-	// Now that the temp output file has been created, try to remove it if any
-	// errors occur later.
-	defer os.Remove(tmpOut)
-	// Now that symlink has been read from, it can be removed
-	os.Remove(cidSymlink)
+	media, err := os.ReadFile(filepath.Join(conf.Dirs.Files, cid))
+	if err != nil {
+		return "", fmt.Errorf("error reading CID file: %w", err)
+	}
+	baseURL := conf.Trufo.BaseURL
+	if baseURL == "" {
+		baseURL = trufoDefaultBaseURL
+	}
+	signed, err := signWithTrufo(baseURL, conf.Trufo.ApiKey, conf.Trufo.Mode != "prod", media, actions, assertions)
+	if err != nil {
+		return "", err
+	}
 
-	// Calc CID and final path, move later
+	tmpOut := filepath.Join(util.TempDir(), "inject_c2pa-"+strconv.FormatUint(rand.Uint64(), 10))
+	if err := os.WriteFile(tmpOut, signed, 0o600); err != nil {
+		return "", fmt.Errorf("error writing signed file: %w", err)
+	}
+	return tmpOut, nil
+}
+
+// finishExport calculates the signed file's CID, logs it to AA, and moves it
+// into file storage. Shared by all signers.
+func finishExport(conf *config.Config, signer, tmpOut string) error {
+	defer os.Remove(tmpOut)
+
 	f, err := os.Open(tmpOut)
 	if err != nil {
 		return fmt.Errorf("error opening temp file: %w", err)
@@ -209,9 +182,6 @@ func Run(args []string) error {
 	}
 	c2paFinalPath := filepath.Join(conf.Dirs.Files, c2paCid)
 
-	// Set AA data:
-	// Update c2pa_exports and add relationship to exported file
-
 	c2paCidCbor, err := aa.NewCborCID(c2paCid)
 	if err != nil {
 		return fmt.Errorf("error parsing CID of C2PA asset (%s): %w", c2paCid, err)
@@ -220,25 +190,126 @@ func Run(args []string) error {
 		Manifest:  manifestName,
 		CID:       c2paCidCbor,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Signer:    signer,
 	})
 	if err != nil {
 		return fmt.Errorf("error logging C2PA export to AA: %w", err)
 	}
-	err = aa.AddRelationship(cid, "children", "derived", c2paCid)
-	if err != nil {
+	if err := aa.AddRelationship(cid, "children", "derived", c2paCid); err != nil {
 		return fmt.Errorf("error setting relationship attestations: %w", err)
 	}
 
-	// Move file if everything succeeded
-	err = util.MoveFile(tmpOut, c2paFinalPath)
-	if err != nil {
+	if err := util.MoveFile(tmpOut, c2paFinalPath); err != nil {
 		return fmt.Errorf("error moving temp file into c2pa file storage: %w", err)
 	}
 
-	// Tell user
 	fmt.Printf("Injected file stored at %s\n", c2paFinalPath)
 	fmt.Println("Logged C2PA export and relationship to AuthAttr to the respective attributes: c2pa_exports, children")
 	return nil
+}
+
+// buildLocalManifest reads the c2patool manifest template and replaces {{vars}}
+// with attributes (assertions) and VCs (credentials).
+func buildLocalManifest(conf *config.Config) (map[string]any, error) {
+	b, err := os.ReadFile(filepath.Join(conf.Dirs.C2PAManifestTmpls, manifestName+".json"))
+	if err != nil {
+		return nil, fmt.Errorf("error reading manifest: %w", err)
+	}
+	var manifestTmpl map[string]any
+	if err := json.Unmarshal(b, &manifestTmpl); err != nil {
+		return nil, fmt.Errorf("error parsing manifest: %w", err)
+	}
+	if _, ok := manifestTmpl["assertions"]; !ok {
+		return nil, fmt.Errorf("'assertions' not in manifest template")
+	}
+	manifestTmpl["assertions"], err = jsonReplace(manifestTmpl["assertions"], false)
+	if err != nil {
+		return nil, fmt.Errorf("error replacing assertion values in manifest: %w", err)
+	}
+	if _, ok := manifestTmpl["credentials"]; ok {
+		manifestTmpl["credentials"], err = jsonReplace(manifestTmpl["credentials"], true)
+		if err != nil {
+			return nil, fmt.Errorf("error replacing credential values in manifest: %w", err)
+		}
+	}
+	return manifestTmpl, nil
+}
+
+// buildTrufoAssertions reads a Trufo template and returns its actions and
+// assertions. Template shape: {"actions": [...], "assertions": [["name", {params}], ...]}.
+// {{vars}} in assertions are replaced with AA attributes. The cawg_identity is
+// appended from config, so templates should not include one.
+func buildTrufoAssertions(conf *config.Config) ([]any, []any, error) {
+	if conf.Trufo.CawgIdentityID == "" {
+		return nil, nil, fmt.Errorf("trufo.cawg_identity_id not set in config file")
+	}
+	b, err := os.ReadFile(filepath.Join(conf.Dirs.C2PAManifestTmpls, manifestName+".json"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("error reading manifest: %w", err)
+	}
+	var tmpl struct {
+		Actions    []any `json:"actions"`
+		Assertions []any `json:"assertions"`
+	}
+	if err := json.Unmarshal(b, &tmpl); err != nil {
+		return nil, nil, fmt.Errorf("error parsing manifest: %w", err)
+	}
+
+	var assertions []any
+	if tmpl.Assertions != nil {
+		replaced, err := jsonReplace(tmpl.Assertions, false)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error replacing assertion values: %w", err)
+		}
+		assertions = replaced.([]any)
+	}
+	assertions = append(assertions, []any{
+		"cawg_identity", map[string]any{"cawg_identity_id": conf.Trufo.CawgIdentityID},
+	})
+
+	if tmpl.Actions == nil {
+		tmpl.Actions = []any{}
+	}
+	return tmpl.Actions, assertions, nil
+}
+
+func printJSON(v any) error {
+	j, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error encoding JSON: %w", err)
+	}
+	os.Stdout.Write(j)
+	fmt.Println()
+	return nil
+}
+
+// extensionFor maps a media type to the file extension c2patool expects.
+// https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats
+func extensionFor(mediaType string) (string, error) {
+	switch mediaType {
+	case "video/avi":
+		return "avi", nil
+	case "image/jpeg":
+		return "jpeg", nil
+	case "audio/mpeg":
+		return "mp3", nil
+	case "video/mp4":
+		// Note .m4a (audio/mp4) files also end up here due to the web spec that
+		// http.DetectContentType follows.
+		return "mp4", nil
+	case "image/png":
+		return "png", nil
+	case "audio/wave":
+		return "wav", nil
+	case "image/webp":
+		return "webp", nil
+	default:
+		return "", fmt.Errorf("detected file type %s not supported by this application,"+
+			"possibly not by c2patool either. See "+
+			"https://github.com/contentauth/c2patool?tab=readme-ov-file#supported-file-formats",
+			mediaType,
+		)
+	}
 }
 
 // jsonReplace recursively replaces {{vars}} in JSON with attributes or VCs.
@@ -316,4 +387,5 @@ type c2paExport struct {
 	Manifest  string     `cbor:"manifest"`
 	CID       aa.CborCID `cbor:"cid"`
 	Timestamp string     `cbor:"timestamp"` // RFC 3339
+	Signer    string     `cbor:"signer"`
 }

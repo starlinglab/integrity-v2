@@ -44,6 +44,12 @@ type Config struct {
 		PrivateKey string `toml:"private_key"`
 		SignCert   string `toml:"sign_cert"`
 	} `toml:"c2pa"`
+	Trufo struct {
+		ApiKey         string `toml:"api_key"`
+		BaseURL        string `toml:"base_url"`         // optional, defaults to https://api.trufo.ai
+		Mode           string `toml:"mode"`             // "test" (default) or "prod"
+		CawgIdentityID string `toml:"cawg_identity_id"` // "test" or "org_interim"
+	} `toml:"trufo"`
 	Numbers struct {
 		Token              string `toml:"token"`
 		NftContractAddress string `toml:"nft_contract_address"`
