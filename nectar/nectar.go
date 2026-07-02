@@ -19,9 +19,14 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
-var client = &http.Client{}
+// client bounds every /pfps call with a timeout so a hung or slow Nectar cannot
+// stall an image ingest indefinitely: computeImagePFP runs on the webhook
+// request path and its only other cancellation source is the inbound request
+// context, which has no deadline of its own.
+var client = &http.Client{Timeout: 60 * time.Second}
 
 // supportedImageTypes are the media types the Nectar /pfps endpoint accepts.
 var supportedImageTypes = []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -89,10 +94,15 @@ func computePFPFromReader(ctx context.Context, r io.Reader, filename, url, token
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 		return "", fmt.Errorf("nectar /pfps returned status code %d and body: %s",
 			resp.StatusCode, body)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading nectar /pfps response: %w", err)
 	}
 
 	// Upload responses look like {"blobs":[{"pfp":"p..."}]}.
@@ -101,7 +111,7 @@ func computePFPFromReader(ctx context.Context, r io.Reader, filename, url, token
 			PFP string `json:"pfp"`
 		} `json:"blobs"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.Unmarshal(body, &out); err != nil {
 		return "", fmt.Errorf("decoding nectar /pfps response: %w", err)
 	}
 
