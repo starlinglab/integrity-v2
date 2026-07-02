@@ -454,10 +454,13 @@ func TestCardanoRegisterE2E(t *testing.T) {
 	// instead of a real deployment config.
 	writeE2EConfig(t, key, cli, dir)
 
-	msg := fmt.Sprintf(`{"synthetic":true,"note":"cardano chain e2e","run":%d}`, time.Now().Unix())
+	run := time.Now().Unix()
+	msg := fmt.Sprintf(`{"synthetic":true,"note":"cardano chain e2e","run":%d}`, run)
+	// A unique synthetic CID per run so the pending-tx record does not collide across e2e runs.
+	cid := fmt.Sprintf("e2e-synthetic-%d", run)
 
 	start := time.Now()
-	data, err := cardanoRegister(msg, testnet)
+	data, err := cardanoRegister(cid, msg, testnet)
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatalf("cardanoRegister failed after %s: %v", elapsed, err)

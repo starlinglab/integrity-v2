@@ -24,6 +24,10 @@ var (
 	dryRun  bool
 )
 
+// chainCardano is the --on value (and the recorded aaRegistration.Chain) for the Cardano path. It
+// ties the write side (Run) to the read-side match in matchCardanoRegistration.
+const chainCardano = "cardano"
+
 func Run(args []string) error {
 	fs := flag.NewFlagSet("register", flag.ContinueOnError)
 	fs.StringVar(&chain, "on", "", "Chain/network to register asset on (numbers,avalanche,ethereum,polygon,cardano)")
@@ -52,8 +56,33 @@ func Run(args []string) error {
 	// (currently just cardano) has its own registration path.
 	numbersChains := []string{"numbers", "avalanche", "ethereum", "polygon"}
 	isNumbers := slices.Contains(numbersChains, chain)
-	if !isNumbers && chain != "cardano" {
+	if !isNumbers && chain != chainCardano {
 		return fmt.Errorf("invalid chain name")
+	}
+
+	// The cardano network name is needed by both the idempotency precheck and the pending-record
+	// cleanup below; derive it once.
+	var cardanoNetName string
+	if chain == chainCardano {
+		cardanoNetName = cardanoNetworkFor(testnet).name
+	}
+
+	// Idempotency guard: if this CID is already registered on the selected cardano network, do not
+	// build or submit anything — re-running is a no-op success. mainnet and preview are distinct, so
+	// registering on one after the other is still allowed. Skipped under --dry-run, which is meant to
+	// show the would-be payload rather than short-circuit.
+	if chain == chainCardano && !dryRun {
+		existing, err := existingCardanoRegistration(cid, cardanoNetName)
+		if err != nil {
+			// Fail closed on a read error (transient AA outage, auth): refusing to proceed when we
+			// cannot verify a prior registration is safer than risking a duplicate fee-paying tx. A
+			// retry once AuthAttr is reachable succeeds.
+			return err
+		}
+		if existing != nil {
+			fmt.Printf("Already registered on cardano (%s): tx %s\n", existing.CardanoChain, existing.TxHash)
+			return nil
+		}
 	}
 
 	requestData := map[string]any{
@@ -152,7 +181,7 @@ func Run(args []string) error {
 	if isNumbers {
 		chainData, err = numbersRegister(requestBytes)
 	} else {
-		chainData, err = cardanoRegister(string(requestBytes), testnet)
+		chainData, err = cardanoRegister(cid, string(requestBytes), testnet)
 	}
 	if err != nil {
 		return err
@@ -165,6 +194,15 @@ func Run(args []string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("error logging registration to AuthAttr: %w", err)
+	}
+
+	// The registration is now durably recorded, so the crash-safe pending record can be removed.
+	// Clearing only after the append means a crash before this point leaves the pending record in
+	// place, letting a re-run resume the existing tx rather than submit a duplicate.
+	if chain == chainCardano {
+		if err := clearPendingCardano(conf, cardanoNetName, cid); err != nil {
+			fmt.Printf("warning: could not clear pending cardano record: %v\n", err)
+		}
 	}
 
 	fmt.Println("Success.")
