@@ -16,7 +16,7 @@ import (
 	"lukechampine.com/blake3"
 )
 
-func getFileAttributesAndWriteToDest(ctx context.Context, source io.Reader, destFile *os.File) (cid string, fileAttributes map[string]any, err error) {
+func getFileAttributesAndWriteToDest(ctx context.Context, conf *config.Config, source io.Reader, destFile *os.File) (cid string, fileAttributes map[string]any, err error) {
 	pr, pw := io.Pipe()
 	cidChan := make(chan string, 1)
 	errChan := make(chan error, 1)
@@ -56,7 +56,7 @@ func getFileAttributesAndWriteToDest(ctx context.Context, source io.Reader, dest
 		"file_size": fileState.Size(),
 	}
 
-	pfp, ok, err := computeImagePFP(ctx, destFile.Name())
+	pfp, ok, err := computeImagePFP(ctx, conf, destFile.Name())
 	if err != nil {
 		return "", nil, err
 	}
@@ -69,10 +69,10 @@ func getFileAttributesAndWriteToDest(ctx context.Context, source io.Reader, dest
 
 // computeImagePFP returns the Nectar perceptual fingerprint for the file at
 // path. The boolean is false (with no error) when PFP is skipped: Nectar is not
-// configured or the media type is not a supported image. When Nectar is
+// configured (no url) or the media type is not a supported image. When Nectar is
 // configured and the media type is supported, a failure is strict and returned.
-func computeImagePFP(ctx context.Context, path string) (pfp string, ok bool, err error) {
-	if !nectar.Enabled() {
+func computeImagePFP(ctx context.Context, conf *config.Config, path string) (pfp string, ok bool, err error) {
+	if conf.Nectar.Url == "" {
 		return "", false, nil
 	}
 	mediaType, err := util.GuessMediaType(path)
@@ -82,7 +82,7 @@ func computeImagePFP(ctx context.Context, path string) (pfp string, ok bool, err
 	if !nectar.SupportsMediaType(mediaType) {
 		return "", false, nil
 	}
-	pfp, err = nectar.ComputePFP(ctx, path)
+	pfp, err = nectar.ComputePFP(ctx, conf.Nectar.Url, conf.Nectar.Token, path)
 	if err != nil {
 		return "", false, fmt.Errorf("computing pfp for image: %w", err)
 	}

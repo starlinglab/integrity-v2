@@ -167,9 +167,9 @@ func getCrawlInfo(orgId, crawlId string) (*CrawlAdminResponse, error) {
 	return &value, nil
 }
 
-func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
+func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request, conf *config.Config) {
 	webhookSecret := r.URL.Query().Get("s")
-	if webhookSecret != config.GetConfig().Browsertrix.WebhookSecret {
+	if webhookSecret != conf.Browsertrix.WebhookSecret {
 		writeJsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "invalid secret"})
 		return
 	}
@@ -234,7 +234,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 	alreadyDownloaded := false
 	matches, _ := aa.IndexMatchQuery("sha256", crawlInfo.Resources[0].Hash, "str")
 	if len(matches) > 0 {
-		_, err = os.Stat(filepath.Join(config.GetConfig().Dirs.Files, matches[0]))
+		_, err = os.Stat(filepath.Join(conf.Dirs.Files, matches[0]))
 		if err == nil {
 			alreadyDownloaded = true
 		}
@@ -271,7 +271,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		defer tempFile.Close()
 		defer os.Remove(tempFilePath)
 
-		cid, fileAttributes, err := getFileAttributesAndWriteToDest(r.Context(), resp.Body, tempFile)
+		cid, fileAttributes, err := getFileAttributesAndWriteToDest(r.Context(), conf, resp.Body, tempFile)
 		if err != nil {
 			log.Printf("browsertrix: failed to write wacz to temp file: %s", err.Error())
 			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

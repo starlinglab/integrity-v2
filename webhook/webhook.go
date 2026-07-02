@@ -79,7 +79,7 @@ func handleGetCidAttribute(w http.ResponseWriter, r *http.Request) { //nolint:un
 
 // Handle generic file upload request, accept file and metadata from multipart form,
 // calculate file CID, save to output directory, and set attestations to aa
-func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
+func handleGenericFileUpload(w http.ResponseWriter, r *http.Request, conf *config.Config) {
 	form, err := r.MultipartReader()
 	if err != nil {
 		writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -129,7 +129,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 
 		} else if part.FormName() == "file" {
-			cid, fileAttributes, err = getFileAttributesAndWriteToDest(r.Context(), part, tempFile)
+			cid, fileAttributes, err = getFileAttributesAndWriteToDest(r.Context(), conf, part, tempFile)
 			defer part.Close()
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -171,18 +171,24 @@ func Run(args []string) error {
 	}
 	jwtTokenAuth := jwtauth.New("HS256", []byte(jwtSecret), nil)
 
+	conf := config.GetConfig()
+
 	r := chi.NewRouter()
 	r.Get("/ping", handlePing)
 	// r.Get("/c/{cid}", handleGetCid)
 	// r.Get("/c/{cid}/{attr}", handleGetCidAttribute)
-	r.Post("/browsertrix", handleBrowsertrixEvent)
+	r.Post("/browsertrix", func(w http.ResponseWriter, r *http.Request) {
+		handleBrowsertrixEvent(w, r, conf)
+	})
 	r.Route("/generic", func(r chi.Router) {
 		r.Use(jwtauth.Verifier(jwtTokenAuth))
 		r.Use(jwtauth.Authenticator(jwtTokenAuth))
-		r.Post("/", handleGenericFileUpload)
+		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			handleGenericFileUpload(w, r, conf)
+		})
 	})
 
-	host := config.GetConfig().Webhook.Host
+	host := conf.Webhook.Host
 	if host == "" {
 		return fmt.Errorf("webhook host not set in config")
 	}

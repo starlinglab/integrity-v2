@@ -20,6 +20,13 @@ build tool:
 test-cardano:
     @go test -v -count=1 -run 'Cardano|Blockfrost' ./register/
 
+# Run the live Nectar perceptual-fingerprint integration test against the real
+# /pfps endpoint. Needs NECTAR_URL and NECTAR_TOKEN (Nectar is access-gated);
+# skips when either is unset, so plain `go test ./...` stays offline.
+#   NECTAR_URL=https://<host> NECTAR_TOKEN=<token> just test-nectar
+test-nectar:
+    @go test -v -count=1 -run 'Nectar' ./nectar/
+
 # Remove binaries but not any custom made directories or whatever
 clean:
     @find build -maxdepth 1 -type f -delete

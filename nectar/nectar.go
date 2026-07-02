@@ -19,8 +19,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-
-	"github.com/starlinglab/integrity-v2/config"
 )
 
 var client = &http.Client{}
@@ -28,26 +26,23 @@ var client = &http.Client{}
 // supportedImageTypes are the media types the Nectar /pfps endpoint accepts.
 var supportedImageTypes = []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
 
-// Enabled reports whether Nectar is configured (a URL is set). When it returns
-// false callers should skip PFP computation rather than treat it as an error.
-func Enabled() bool {
-	return config.GetConfig().Nectar.Url != ""
-}
-
 // SupportsMediaType reports whether the Nectar /pfps endpoint can fingerprint
 // the given media type, as returned by util.GuessMediaType / http.DetectContentType.
 func SupportsMediaType(mediaType string) bool {
 	return slices.Contains(supportedImageTypes, mediaType)
 }
 
-// ComputePFP uploads the image at imagePath to the configured Nectar API and
-// returns its perceptual fingerprint (a DASL "p..." string). It returns an
-// error if the image cannot be read, the request fails, or the response does
-// not contain a valid PFP.
-func ComputePFP(ctx context.Context, imagePath string) (string, error) {
-	conf := config.GetConfig()
-	if conf.Nectar.Url == "" {
-		return "", fmt.Errorf("no nectar url set in the config")
+// ComputePFP uploads the image at imagePath to the Nectar API at url and returns
+// its perceptual fingerprint (a DASL "p..." string). The bearer token is sent
+// only when non-empty. It returns an error if the image cannot be read, the
+// request fails, or the response does not contain a valid PFP.
+//
+// This package is config-free by design: callers own where url and token come
+// from (in production, config.GetConfig().Nectar), so it stays a pure transport
+// that tests can drive with any endpoint.
+func ComputePFP(ctx context.Context, url, token, imagePath string) (string, error) {
+	if url == "" {
+		return "", fmt.Errorf("no nectar url provided")
 	}
 
 	f, err := os.Open(imagePath)
@@ -56,7 +51,7 @@ func ComputePFP(ctx context.Context, imagePath string) (string, error) {
 	}
 	defer f.Close()
 
-	return computePFPFromReader(ctx, f, filepath.Base(imagePath), conf.Nectar.Url, conf.Nectar.Token)
+	return computePFPFromReader(ctx, f, filepath.Base(imagePath), url, token)
 }
 
 // computePFPFromReader performs the multipart upload of r (named filename) to
