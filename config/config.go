@@ -63,6 +63,10 @@ type Config struct {
 	Cardano struct {
 		BlockfrostApiKey string `toml:"blockfrost_api_key"`
 	} `toml:"cardano"`
+	Nectar struct {
+		Url   string `toml:"url"`
+		Token string `toml:"token"`
+	} `toml:"nectar"`
 }
 
 var conf *Config
