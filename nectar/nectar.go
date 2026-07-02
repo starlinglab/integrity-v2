@@ -8,7 +8,6 @@
 package nectar
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -65,25 +64,42 @@ func ComputePFP(ctx context.Context, url, token, imagePath string) (string, erro
 // be exercised against an httptest.Server without touching disk or global
 // config.
 func computePFPFromReader(ctx context.Context, r io.Reader, filename, url, token string) (string, error) {
-	var buf bytes.Buffer
-	mp := multipart.NewWriter(&buf)
-	part, err := mp.CreateFormFile("image", filename)
-	if err != nil {
-		return "", fmt.Errorf("creating multipart image field: %w", err)
-	}
-	if _, err := io.Copy(part, r); err != nil {
-		return "", fmt.Errorf("writing image to multipart body: %w", err)
-	}
-	if err := mp.Close(); err != nil {
-		return "", fmt.Errorf("closing multipart body: %w", err)
-	}
+	// Stream the multipart body through an io.Pipe instead of buffering the
+	// whole image in memory: the goroutine writes the body while client.Do
+	// reads it straight onto the socket. This keeps peak memory to the
+	// multipart writer's small copy buffer, so large images processed in
+	// parallel cannot OOM the ingest path.
+	pr, pw := io.Pipe()
+	mp := multipart.NewWriter(pw)
+	// The boundary is fixed at NewWriter time, so FormDataContentType is stable
+	// and safe to read here before the writer goroutine starts.
+	contentType := mp.FormDataContentType()
+
+	// CloseWithError(nil) is equivalent to Close, so every exit — success or
+	// any write failure — funnels the error (or nil) back to the reader side
+	// through one call.
+	go func() {
+		pw.CloseWithError(func() error {
+			part, err := mp.CreateFormFile("image", filename)
+			if err != nil {
+				return fmt.Errorf("creating multipart image field: %w", err)
+			}
+			if _, err := io.Copy(part, r); err != nil {
+				return fmt.Errorf("writing image to multipart body: %w", err)
+			}
+			if err := mp.Close(); err != nil {
+				return fmt.Errorf("closing multipart body: %w", err)
+			}
+			return nil
+		}())
+	}()
 
 	endpoint := strings.TrimRight(url, "/") + "/pfps"
-	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, pr)
 	if err != nil {
 		return "", fmt.Errorf("building nectar request: %w", err)
 	}
-	req.Header.Set("Content-Type", mp.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
