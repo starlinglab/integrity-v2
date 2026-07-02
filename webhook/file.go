@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,11 +11,12 @@ import (
 	"os"
 
 	"github.com/starlinglab/integrity-v2/config"
+	"github.com/starlinglab/integrity-v2/nectar"
 	"github.com/starlinglab/integrity-v2/util"
 	"lukechampine.com/blake3"
 )
 
-func getFileAttributesAndWriteToDest(source io.Reader, destFile *os.File) (cid string, fileAttributes map[string]any, err error) {
+func getFileAttributesAndWriteToDest(ctx context.Context, conf *config.Config, source io.Reader, destFile *os.File) (cid string, fileAttributes map[string]any, err error) {
 	pr, pw := io.Pipe()
 	cidChan := make(chan string, 1)
 	errChan := make(chan error, 1)
@@ -53,7 +55,38 @@ func getFileAttributesAndWriteToDest(source io.Reader, destFile *os.File) (cid s
 		"blake3":    hex.EncodeToString(blake.Sum(nil)),
 		"file_size": fileState.Size(),
 	}
+
+	pfp, ok, err := computeImagePFP(ctx, conf, destFile.Name())
+	if err != nil {
+		return "", nil, err
+	}
+	if ok {
+		fileAttributes["pfp"] = pfp
+	}
+
 	return cid, fileAttributes, nil
+}
+
+// computeImagePFP returns the Nectar perceptual fingerprint for the file at
+// path. The boolean is false (with no error) when PFP is skipped: Nectar is not
+// configured (no url) or the media type is not a supported image. When Nectar is
+// configured and the media type is supported, a failure is strict and returned.
+func computeImagePFP(ctx context.Context, conf *config.Config, path string) (pfp string, ok bool, err error) {
+	if conf.Nectar.Url == "" {
+		return "", false, nil
+	}
+	mediaType, err := util.GuessMediaType(path)
+	if err != nil {
+		return "", false, fmt.Errorf("guessing media type for pfp: %w", err)
+	}
+	if !nectar.SupportsMediaType(mediaType) {
+		return "", false, nil
+	}
+	pfp, err = nectar.ComputePFP(ctx, conf.Nectar.Url, conf.Nectar.Token, path)
+	if err != nil {
+		return "", false, fmt.Errorf("computing pfp for image: %w", err)
+	}
+	return pfp, true, nil
 }
 
 // Check if the output directory is set and exists

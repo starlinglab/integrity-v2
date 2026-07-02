@@ -63,3 +63,10 @@ signing_domains = []             # Default if unspecified is "signing.app.browse
 # The key must match the target network: register --on cardano uses mainnet (a mainnet… key),
 # while register --on cardano --testnet uses the preview testnet (a preview… key). https://blockfrost.io
 blockfrost_api_key = "mainnetABC123"
+
+[nectar]
+# Perceptual-fingerprint (PFP) service. https://nectar.hypha.coop/
+# API base; pfp lookups POST to <url>/pfps.
+url = "https://nectar-api.hypha.coop"
+# Access token (Nectar is access-gated). Sent as an auth header; leave blank if unset.
+token = ""
