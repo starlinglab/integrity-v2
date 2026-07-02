@@ -17,12 +17,28 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/starlinglab/integrity-v2/config"
 )
 
 var client = &http.Client{}
+
+// supportedImageTypes are the media types the Nectar /pfps endpoint accepts.
+var supportedImageTypes = []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
+
+// Enabled reports whether Nectar is configured (a URL is set). When it returns
+// false callers should skip PFP computation rather than treat it as an error.
+func Enabled() bool {
+	return config.GetConfig().Nectar.Url != ""
+}
+
+// SupportsMediaType reports whether the Nectar /pfps endpoint can fingerprint
+// the given media type, as returned by util.GuessMediaType / http.DetectContentType.
+func SupportsMediaType(mediaType string) bool {
+	return slices.Contains(supportedImageTypes, mediaType)
+}
 
 // ComputePFP uploads the image at imagePath to the configured Nectar API and
 // returns its perceptual fingerprint (a DASL "p..." string). It returns an

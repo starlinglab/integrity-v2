@@ -271,7 +271,7 @@ func handleBrowsertrixEvent(w http.ResponseWriter, r *http.Request) {
 		defer tempFile.Close()
 		defer os.Remove(tempFilePath)
 
-		cid, fileAttributes, err := getFileAttributesAndWriteToDest(resp.Body, tempFile)
+		cid, fileAttributes, err := getFileAttributesAndWriteToDest(r.Context(), resp.Body, tempFile)
 		if err != nil {
 			log.Printf("browsertrix: failed to write wacz to temp file: %s", err.Error())
 			writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})

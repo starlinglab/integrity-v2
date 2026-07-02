@@ -129,7 +129,7 @@ func handleGenericFileUpload(w http.ResponseWriter, r *http.Request) {
 			}
 
 		} else if part.FormName() == "file" {
-			cid, fileAttributes, err = getFileAttributesAndWriteToDest(part, tempFile)
+			cid, fileAttributes, err = getFileAttributesAndWriteToDest(r.Context(), part, tempFile)
 			defer part.Close()
 			if err != nil {
 				writeJsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
