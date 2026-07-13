@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/starlinglab/integrity-v2/aa"
 	"github.com/starlinglab/integrity-v2/config"
 	"github.com/starlinglab/integrity-v2/util"
 )
@@ -116,6 +117,65 @@ type cardanoChainData struct {
 	Status       string `json:"status"`     // "confirmed" (only confirmed txs are persisted)
 }
 
+// storedRegistration decodes one element of the append-only "registrations" array as stored in
+// AuthAttr. Each element is an aaRegistration (register.go) whose Data, for a cardano entry, is a
+// cardanoChainData. AuthAttr stores CBOR and fxamacker/cbor honors these json tags, so a JSON
+// round-trip of the decoded value (see existingCardanoRegistration) unmarshals cleanly.
+type storedRegistration struct {
+	Chain string           `json:"chain"`
+	Attrs []string         `json:"attrs"`
+	Data  cardanoChainData `json:"data"`
+}
+
+// existingCardanoRegistration returns a prior confirmed cardano registration of cid on the network
+// named netName, or nil if there is none. It reads the append-only "registrations" attribute from
+// AuthAttr and matches on chain=="cardano", the recorded network (mainnet and preview are distinct),
+// and a non-empty tx hash. A missing attribute — or AA mock mode — means "not registered". This is
+// the idempotency guard that lets register.Run short-circuit a re-run instead of submitting a
+// duplicate transaction.
+func existingCardanoRegistration(cid, netName string) (*cardanoChainData, error) {
+	entry, err := aa.GetAttestation(cid, "registrations", aa.GetAttOpts{})
+	if err != nil {
+		if errors.Is(err, aa.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading registrations for %s: %w", cid, err)
+	}
+	if entry == nil {
+		return nil, nil // AA mock mode, or nothing stored
+	}
+	return matchCardanoRegistration(entry.Attestation.Value, netName)
+}
+
+// matchCardanoRegistration finds a confirmed cardano registration for netName within the decoded
+// value of the "registrations" attribute. value is the CBOR-decoded array of aaRegistration entries
+// ("registrations" is append-only, so it is always an array). It is split from
+// existingCardanoRegistration so the matching logic can be unit-tested without an AuthAttr server.
+func matchCardanoRegistration(value any, netName string) (*cardanoChainData, error) {
+	if value == nil {
+		return nil, nil
+	}
+
+	// The "registrations" attribute is append-only, so its decoded value is always a JSON array.
+	// Re-marshal the CBOR-decoded value and unmarshal into typed registrations (json tags drive it).
+	j, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("re-encoding registrations: %w", err)
+	}
+	var regs []storedRegistration
+	if err := json.Unmarshal(j, &regs); err != nil {
+		return nil, fmt.Errorf("decoding registrations: %w", err)
+	}
+
+	for i := range regs {
+		if regs[i].Chain == chainCardano && regs[i].Data.CardanoChain == netName && regs[i].Data.TxHash != "" {
+			d := regs[i].Data
+			return &d, nil
+		}
+	}
+	return nil, nil
+}
+
 // cardanoTxResp is the subset of Blockfrost's GET /txs/{hash} response we need.
 type cardanoTxResp struct {
 	BlockHeight int64 `json:"block_height"`
@@ -135,7 +195,7 @@ type cardanoProtocolParams struct {
 	CoinsPerUTXOByte int    `json:"-"` // parsed from CoinsPerUTXOSize
 }
 
-func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
+func cardanoRegister(cid, msg string, testnet bool) (*cardanoChainData, error) {
 	conf := config.GetConfig()
 
 	if conf.Bins.CardanoCli == "" {
@@ -153,6 +213,32 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 	// keys or building a tx, so a preview key can never be used against mainnet (or vice-versa).
 	if err := cardanoCheckKeyNetwork(net, conf.Cardano.BlockfrostApiKey); err != nil {
 		return nil, err
+	}
+
+	// Crash-safe resume: a previous run may have submitted a tx for this CID+network but crashed
+	// before the registration was logged to AuthAttr. In that case resume polling that same tx
+	// instead of building and submitting a duplicate (which would pay a second fee and create a
+	// second on-chain record). The pending record is cleared by register.Run only after the
+	// AuthAttr append succeeds, so this path is safe to re-enter.
+	pending, err := readPendingCardano(conf, net.name, cid)
+	if err != nil {
+		return nil, err
+	}
+	if pending != nil {
+		fmt.Printf("Found pending cardano tx %s; resuming confirmation instead of resubmitting\n", pending.TxHash)
+		tx, err := pollCardanoConfirmation(net.blockfrostBase, pending.TxHash, conf.Cardano.BlockfrostApiKey)
+		if err != nil {
+			return nil, fmt.Errorf("%w; if this tx was dropped by the network and will never confirm, "+
+				"remove %s and re-run to submit a new transaction",
+				err, pendingCardanoPath(conf, net.name, cid))
+		}
+		return &cardanoChainData{
+			CardanoChain: net.name,
+			TxHash:       pending.TxHash,
+			BlockHeight:  tx.BlockHeight,
+			BlockTime:    tx.BlockTime,
+			Status:       "confirmed",
+		}, nil
 	}
 
 	// Generate wallet and address if needed
@@ -193,11 +279,14 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 
 	// Get UTXOs
 	fmt.Println("Getting UXTOs")
-	addr, err := os.ReadFile(filepath.Join(conf.Dirs.Cardano, "paymentNoStake.addr"))
+	addrBytes, err := os.ReadFile(filepath.Join(conf.Dirs.Cardano, "paymentNoStake.addr"))
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", net.blockfrostBase+"addresses/"+string(addr)+"/utxos", nil)
+	// cardano-cli writes the bare address, but trim any stray whitespace/newline so it can never
+	// corrupt the request URL (which would itself trigger a Blockfrost 400).
+	addr := strings.TrimSpace(string(addrBytes))
+	req, err := http.NewRequest("GET", net.blockfrostBase+"addresses/"+addr+"/utxos", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +304,12 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 		return nil, err
 	}
 	resp.Body.Close()
+	// Any non-200 (e.g. 403 invalid token, 402 usage limit, 429 rate limit) returns a Blockfrost
+	// error object, not the UTXO array; surface its body instead of an opaque unmarshal error.
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("blockfrost addresses/%s/utxos returned status code %d: %s",
+			addr, resp.StatusCode, body)
+	}
 	var uxtos uxtoResp
 	if err := json.Unmarshal(body, &uxtos); err != nil {
 		return nil, err
@@ -274,7 +369,7 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 	}
 
 	// Pass 1: build and sign with a placeholder fee solely to measure the signed tx size.
-	measured, err := buildAndSignCardanoTx(conf, net, string(addr), txIns, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder, assets)
+	measured, err := buildAndSignCardanoTx(conf, net, addr, txIns, cardanoFeePlaceholder, quantity-cardanoFeePlaceholder, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +384,7 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 	}
 
 	// Pass 2: rebuild and re-sign with the computed fee and matching change output.
-	txCbor, err := buildAndSignCardanoTx(conf, net, string(addr), txIns, fee, quantity-fee, assets)
+	txCbor, err := buildAndSignCardanoTx(conf, net, addr, txIns, fee, quantity-fee, assets)
 	if err != nil {
 		return nil, err
 	}
@@ -321,6 +416,18 @@ func cardanoRegister(msg string, testnet bool) (*cardanoChainData, error) {
 	var txHash string
 	if err := json.Unmarshal(body, &txHash); err != nil {
 		return nil, err
+	}
+
+	// Persist the submitted tx before polling. If we crash during confirmation, a later run finds
+	// this record and resumes polling the same tx instead of submitting a duplicate. register.Run
+	// clears it once the registration is logged to AuthAttr.
+	//
+	// The tx is already submitted at this point, so a failure to write the local record must NOT
+	// abort: returning here would orphan a real on-chain tx (and lose its hash), risking a duplicate
+	// on retry. Surface the hash loudly and continue to poll — Run's AuthAttr append is the durable
+	// record; only the crash-safe resume shortcut is lost.
+	if err := writePendingCardano(conf, &pendingCardanoTx{Cid: cid, Network: net.name, TxHash: txHash}); err != nil {
+		fmt.Printf("warning: could not write pending cardano record for already-submitted tx %s: %v\n", txHash, err)
 	}
 
 	// Poll until the transaction is included in a block, recording where it landed.

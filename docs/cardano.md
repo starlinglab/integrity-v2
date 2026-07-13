@@ -53,6 +53,23 @@ has no funds. On the preview testnet you can get free tokens from the
 [faucet](https://docs.cardano.org/cardano-testnets/tools/faucet); on mainnet you must
 send real ADA to the wallet address. Once funded, register again and it will succeed.
 
+### Idempotency and resubmission
+
+Registration is idempotent per CID and network. If a CID is already registered on the
+selected network (mainnet and preview are tracked separately), re-running the command is a
+no-op success: it prints the existing transaction hash and exits without building, submitting,
+or paying for a new transaction. Registering the same CID on the other network is still allowed.
+
+To make this safe across crashes, a transaction is recorded locally under the cardano dir as
+`pending-<network>-<CID>.json` immediately after it is submitted and before it is confirmed. If
+the process dies while waiting for confirmation, the next run of the same command resumes polling
+that pending transaction instead of submitting a duplicate. The pending file is removed
+automatically once the registration is logged to AuthAttr.
+
+If a submitted transaction is dropped by the network and never confirms, the resume will
+eventually time out with an error naming the pending file. In that case, delete that
+`pending-<network>-<CID>.json` file and re-run to submit a fresh transaction.
+
 ## Metadata
 
 Currently metadata is registered by encoding it as JSON, chopping up that JSON string
