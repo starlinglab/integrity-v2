@@ -18,6 +18,7 @@ Depending on how the binary is built, each CLI tool can either be called by runn
   - `encrypt`: encrypt a file already stored in the system
   - `cid`: calculate a CIDv1 for a file
   - `c2pa`: inject a file with AA metadata using C2PA
+  - `pfp`: compute a Nectar perceptual fingerprint for a stored file and record it as the `pfp` attribute (for backfilling if Nectar was unavailable at ingest time)
   - `register`: register a file with a third-party blockchain
   - `upload`: upload a file to a third-party storage provider
 - `genkey`: create a cryptographic key for use with Authenticated Attributes
