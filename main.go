@@ -11,6 +11,7 @@ import (
 	"github.com/starlinglab/integrity-v2/export"
 	"github.com/starlinglab/integrity-v2/genkey"
 	"github.com/starlinglab/integrity-v2/get"
+	"github.com/starlinglab/integrity-v2/pfp"
 	preprocessorfolder "github.com/starlinglab/integrity-v2/preprocessor/folder"
 	"github.com/starlinglab/integrity-v2/register"
 	"github.com/starlinglab/integrity-v2/relate"
@@ -41,6 +42,7 @@ Commands to run on the server:
     starling file register
     starling file cid
     starling file c2pa
+    starling file pfp
 
 Further documentation on CLI tools is listed online:
 https://github.com/starlinglab/integrity-v2/blob/main/docs/cli.md
@@ -99,6 +101,8 @@ func run(group string, args []string) (bool, error) {
 			err = cid.Run(args)
 		case "c2pa":
 			err = c2pa.Run(args)
+		case "pfp":
+			err = pfp.Run(args)
 		default:
 			// Unknown command
 			return false, nil
